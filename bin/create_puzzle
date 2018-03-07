@@ -46,7 +46,7 @@ def print_messages(messages, level="SUCCESS"):
     """Prints given messages as colored strings"""
     print
     for message in messages:
-        print COLOR_STRING[level].format(message)
+        print(COLOR_STRING[level].format(message))
 
 
 def validate_arguments(args):

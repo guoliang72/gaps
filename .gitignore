@@ -7,6 +7,7 @@ __pycache__/
 # Generated puzzle
 out.jpg
 *_solution.jpg
+puzzle.jpg
 
 # C extensions
 *.so
@@ -28,6 +29,9 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# python swp file
+*.swp
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
