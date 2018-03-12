@@ -11,7 +11,6 @@ import argparse
 import matplotlib.pyplot as plt
 import cv2
 from time import time
-from gaps.genetic_algorithm import GeneticAlgorithm
 from gaps.size_detector import SizeDetector
 from gaps.plot import Plot
 
@@ -34,6 +33,7 @@ def parse_arguments():
     parser.add_argument("--size", type=int, help="Single piece size in pixels.")
     parser.add_argument("--verbose", action="store_true", help="Show best individual after each generation.")
     parser.add_argument("--save", action="store_true", help="Save puzzle result as image.")
+    parser.add_argument("--algorithm", type=str, choices=['edge', 'crowd'], required=True)
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -54,7 +54,17 @@ if __name__ == "__main__":
 
     # Let the games begin! And may the odds be in your favor!
     start = time()
-    algorithm = GeneticAlgorithm(image, piece_size, args.population, args.generations)
+    if args.algorithm == 'crowd':
+        print("Start using crowd-based fitness measure...")
+        from gaps.crowd.genetic_algorithm import GeneticAlgorithm
+        algorithm = GeneticAlgorithm(image, piece_size, args.population, args.generations)
+    elif args.algorithm == 'edge':
+        print("Start using edge dissimilarity measure...")
+        from gaps.edge.genetic_algorithm import GeneticAlgorithm
+        algorithm = GeneticAlgorithm(image, piece_size, args.population, args.generations)
+    else:
+        print('unknown algorithm: {}'.format(algorithm))
+        exit()
     solution = algorithm.start_evolution(args.verbose)
     end = time()
 
