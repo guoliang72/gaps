@@ -2,13 +2,13 @@ from __future__ import print_function
 from operator import attrgetter
 from gaps import image_helpers
 from gaps.selection import roulette_selection
-from gaps.crossover import Crossover
-from gaps.individual import Individual
-from gaps.image_analysis import ImageAnalysis
 from gaps.plot import Plot
 from gaps.progress_bar import print_progress
+from gaps.edge.crossover import Crossover
+from gaps.edge.individual import Individual
+from gaps.edge.image_analysis import ImageAnalysis
 
-
+# Don't create two instantces for this class
 class GeneticAlgorithm(object):
 
     TERMINATION_THRESHOLD = 10

@@ -1,6 +1,6 @@
 import numpy as np
 from gaps import image_helpers
-from gaps.image_analysis import ImageAnalysis
+from gaps.edge.image_analysis import ImageAnalysis
 
 
 class Individual(object):

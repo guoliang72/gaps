@@ -1,4 +1,4 @@
-from gaps.fitness import dissimilarity_measure
+from gaps.edge.fitness import dissimilarity_measure
 from gaps.progress_bar import print_progress
 
 
