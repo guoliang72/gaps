@@ -65,6 +65,8 @@ class Individual(object):
 
         return self._fitness
         '''
+        """ Evaluate fitness value with crowd-based measure.
+        """
         if self._fitness is None:
             fitness_value = 0
             # For each two adjacent pieces in rows
