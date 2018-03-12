@@ -48,3 +48,6 @@ ENV/
 
 # PyCharm project
 .idea
+
+# MacOS
+*.DS_Store
