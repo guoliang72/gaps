@@ -2,6 +2,7 @@
 
 import random
 import bisect
+from gaps.config import Config
 
 try:
     xrange          # Python 2
@@ -27,15 +28,28 @@ def roulette_selection(population, elites=4):
     fitness_values = [individual.fitness for individual in population]
     probability_intervals = [sum(fitness_values[:i + 1]) for i in range(len(fitness_values))]
 
-    def select_individual():
-        """Selects random individual from population based on fitess value"""
-        random_select = random.uniform(0, probability_intervals[-1])
-        selected_index = bisect.bisect_left(probability_intervals, random_select)
-        return population[selected_index]
+    if Config.roulette_alt:
+        # select two individuals(parents) in each round of roulette.
+        def select_parents():
+            """Selects random individual from population based on fitess value"""
+            random_select = random.uniform(0, probability_intervals[-1])
+            selected_index_first = bisect.bisect_left(probability_intervals, random_select)
+            random_select = (random_select + probability_intervals[-1] / 2) % probability_intervals[-1]
+            selected_index_second = bisect.bisect_left(probability_intervals, random_select)
+            return population[selected_index_first], population[selected_index_second]
+    else:
+        # select one individual in each round of roulette.
+        def select_parents():
+            """Selects random individual from population based on fitess value"""
+            random_select = random.uniform(0, probability_intervals[-1])
+            selected_index_first = bisect.bisect_left(probability_intervals, random_select)
+            random_select = random.uniform(0, probability_intervals[-1])
+            selected_index_second = bisect.bisect_left(probability_intervals, random_select)
+            return population[selected_index_first], population[selected_index_second]
 
     selected = []
     for i in xrange(len(population) - elites):
-        first, second = select_individual(), select_individual()
+        first, second = select_parents()
         selected.append((first, second))
 
     return selected
