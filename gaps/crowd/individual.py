@@ -1,6 +1,7 @@
 import numpy as np
 from gaps import image_helpers
 from gaps.crowd.image_analysis import ImageAnalysis
+from gaps.config import Config
 
 
 class Individual(object):
@@ -30,6 +31,7 @@ class Individual(object):
         self.rows = rows
         self.columns = columns
         self._fitness = None
+        self._is_solution = None
 
         if shuffle:
             np.random.shuffle(self.pieces)
@@ -113,7 +115,21 @@ class Individual(object):
             return self.pieces[edge_index - 1].id
 
     def is_solution(self):
-        for i in range(len(self.pieces)-1):
-            if self.pieces[i].id >= self.pieces[i+1].id:
-                return False
-        return True
+        if self._is_solution is None:
+            for i in range(len(self.pieces)-1):
+                if self.pieces[i].id >= self.pieces[i+1].id:
+                    self._is_solution = False
+                    break
+            else:
+                self._is_solution = True
+        
+        return self._is_solution
+
+    def to_mongo_document(self, generation):
+        return dict(
+            round_id = Config.round_id,
+            fitness = self.fitness,
+            is_solution = self.is_solution(),
+            pieces = [piece.id for piece in self.pieces],
+            generation = generation,
+            )

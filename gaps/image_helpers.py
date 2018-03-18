@@ -2,7 +2,7 @@ import numpy as np
 from gaps.piece import Piece
 
 
-def flatten_image(image, piece_size, indexed=False):
+def flatten_image(image, piece_size, indexed=False, r=None, c=None):
     """Converts image into list of square pieces.
 
     Input image is divided into square pieces of specified size and than
@@ -18,7 +18,8 @@ def flatten_image(image, piece_size, indexed=False):
         >>> flat_image = flatten_image(image, 32)
 
     """
-    rows, columns = image.shape[0] // piece_size, image.shape[1] // piece_size
+    rows = r or (image.shape[0] // piece_size)
+    columns = c or (image.shape[1] // piece_size)
     pieces = []
 
     # Crop pieces from original image
@@ -28,7 +29,7 @@ def flatten_image(image, piece_size, indexed=False):
             piece = np.empty((piece_size, piece_size, image.shape[2]))
             piece[:piece_size, :piece_size, :] = image[top:h, left:w, :]
             pieces.append(piece)
-
+    
     if indexed:
         pieces = [Piece(value, index) for index, value in enumerate(pieces)]
 
