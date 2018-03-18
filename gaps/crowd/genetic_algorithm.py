@@ -61,6 +61,13 @@ class GeneticAlgorithm(object):
                 crossover = Crossover(first_parent, second_parent)
                 crossover.run()
                 child = crossover.child()
+                if child.is_solution():
+                    """
+                    write database
+                    send HTTP message to server
+                    terminate this process
+                    """
+                    pass
                 new_population.append(child)
 
             fittest = self._best_individual()

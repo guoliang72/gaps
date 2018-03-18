@@ -111,3 +111,9 @@ class Individual(object):
 
         if (orientation == "L") and (edge_index % self.columns > 0):
             return self.pieces[edge_index - 1].id
+
+    def is_solution(self):
+        for i in range(len(self.pieces)-1):
+            if self.pieces[i].id >= self.pieces[i+1].id:
+                return False
+        return True
