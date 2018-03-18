@@ -3,7 +3,7 @@ import time
 from operator import attrgetter
 from gaps import image_helpers
 from gaps.selection import roulette_selection
-from gaps.plot import Plot
+# from gaps.plot import Plot
 from gaps.progress_bar import print_progress
 from gaps.crowd.crossover import Crossover
 from gaps.crowd.individual import Individual
@@ -33,6 +33,7 @@ class GeneticAlgorithm(object):
         '''
         
         if verbose:
+            from gaps.plot import Plot
             plot = Plot(self._image)
 
         #ImageAnalysis.analyze_image(self._pieces)
@@ -108,6 +109,7 @@ class GeneticAlgorithm(object):
             self._population = new_population
             
             if verbose:
+                from gaps.plot import Plot
                 plot.show_fittest(fittest.to_image(), "Generation: {} / {}".format(generation + 1, self._generations))
             
         return fittest
