@@ -15,7 +15,8 @@ setup(
     install_requires=[
         "numpy",
         "matplotlib",
-        "opencv-python"
+        "opencv-python",
+        "pymongo"
     ],
     scripts=[
         "bin/create_puzzle",
