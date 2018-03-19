@@ -87,6 +87,7 @@ class GeneticAlgorithm(object):
 
                     # send HTTP message to server
                     print("GA found a solution for round {}!".format(Config.round_id))
+                    print("solved")
                     exit(0)
                 new_population.append(child)
 
