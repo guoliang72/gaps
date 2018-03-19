@@ -51,6 +51,3 @@ ENV/
 
 # MacOS
 *.DS_Store
-
-# db
-JsonDB/
