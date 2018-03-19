@@ -12,11 +12,11 @@ class MongoWrapper(object):
 	def nodes_documents(self):
 		yield from self.db['nodes'].find({'round_id': Config.round_id})
 
+	'''
 	def write_elites(self, *args):
 		for v in args:
 			self.db.ga.insert_one(v)
 
-	'''
 	def write_solution(self, solution_doc, start_time, end_time):
 		solution_doc['start_time'] = start_time
 		solution_doc['end_time'] = end_time
