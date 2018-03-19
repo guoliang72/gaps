@@ -1,5 +1,5 @@
 import numpy as np
-from gaps.crowd.mongodbaccess import MongoWrapper
+from gaps.crowd.mongodbaccess import mongo_wrapper
 
 def static_vars(**kwargs):
     """ Decorator for initializing static function variables. """
@@ -9,11 +9,11 @@ def static_vars(**kwargs):
         return func
     return decorate
 
-@static_vars(mongodb=MongoWrapper())
+@static_vars(mongodb=mongo_wrapper)
 def db_update():
     """ Update dissimilarity_measure.measure_didct from mongo database. """
     dissimilarity_measure.measure_dict.clear()
-    for d in db_update.mongodb.documents():
+    for d in db_update.mongodb.nodes_documents():
         first_piece_id = d['index']
         for orient, orientation in zip(['right', 'bottom'], ['LR', 'TD']):
             for link in d[orient]:

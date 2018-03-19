@@ -6,22 +6,27 @@ This module loads puzzle and initializes genetic algorithm with
 given number of generations and population. At the end, solution image is displayed.
 
 """
-
+import sys
+import os
+GAPS_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(GAPS_DIR)
 import argparse
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import cv2
 from time import time
 from gaps.size_detector import SizeDetector
-from gaps.plot import Plot
+# from gaps.plot import Plot
+from gaps.config import Config
 
 GENERATIONS = 20
 POPULATION = 200
 
-
+'''
 def show_image(img, title):
     if not args.verbose:
         Plot(img, title)
     plt.show()
+'''
 
 
 def parse_arguments():
@@ -32,12 +37,16 @@ def parse_arguments():
     parser.add_argument("--population", type=int, default=POPULATION, help="Size of population.")
     parser.add_argument("--size", type=int, help="Single piece size in pixels.")
     parser.add_argument("--verbose", action="store_true", help="Show best individual after each generation.")
+    parser.add_argument("--rows", type=int, default=-1)
+    parser.add_argument("--cols", type=int, default=-1)
+    parser.add_argument("--roundid", type=int, required=True)
     parser.add_argument("--save", action="store_true", help="Save puzzle result as image.")
     parser.add_argument("--algorithm", type=str, choices=['edge', 'crowd'], required=True)
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_arguments()
+    Config.round_id = args.roundid
 
     image = cv2.imread(args.image)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -48,16 +57,18 @@ if __name__ == "__main__":
         detector = SizeDetector(image)
         piece_size = detector.detect_piece_size()
 
+    '''
     print("\n=== Population:  {}".format(args.population))
     print("=== Generations: {}".format(args.generations))
     print("=== Piece size:  {} px".format(piece_size))
+    '''
 
     # Let the games begin! And may the odds be in your favor!
     start = time()
     if args.algorithm == 'crowd':
         print("Start using crowd-based fitness measure...")
         from gaps.crowd.genetic_algorithm import GeneticAlgorithm
-        algorithm = GeneticAlgorithm(image, piece_size, args.population, args.generations)
+        algorithm = GeneticAlgorithm(image, piece_size, args.population, args.generations, args.rows, args.cols)
     elif args.algorithm == 'edge':
         print("Start using edge dissimilarity measure...")
         from gaps.edge.genetic_algorithm import GeneticAlgorithm
@@ -76,6 +87,9 @@ if __name__ == "__main__":
     if args.save:
         cv2.imwrite(solution_image_name, solution_image)
         print("=== Result saved as '{}'".format(solution_image_name))
-
+    
+    '''
     print("=== Close figure to exit")
-    show_image(solution_image, "Solution")
+    if args.verbose:
+        show_image(solution_image, "Solution")
+    '''
