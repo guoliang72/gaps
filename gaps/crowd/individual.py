@@ -125,11 +125,12 @@ class Individual(object):
         
         return self._is_solution
 
-    def to_mongo_document(self, generation):
+    def to_json_data(self, generation, start_time):
         return dict(
             round_id = Config.round_id,
             fitness = self.fitness,
             is_solution = self.is_solution(),
             pieces = [piece.id for piece in self.pieces],
             generation = generation,
+            start_time = start_time,
             )

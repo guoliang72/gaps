@@ -9,7 +9,7 @@ from gaps.crowd.crossover import Crossover
 from gaps.crowd.individual import Individual
 from gaps.crowd.image_analysis import ImageAnalysis
 from gaps.crowd.fitness import db_update
-from gaps.crowd.mongodbaccess import mongo_wrapper
+from gaps.crowd.dbaccess import JsonDB, mongo_wrapper
 from gaps.config import Config
 
 
@@ -46,6 +46,9 @@ class GeneticAlgorithm(object):
         termination_counter = 0
         '''
 
+        # save elites of each generation.
+        elites_db = JsonDB('elites')
+
         for generation in range(self._generations):
             '''
             print_progress(generation, self._generations - 1, prefix="=== Solving puzzle: ")
@@ -57,6 +60,7 @@ class GeneticAlgorithm(object):
 
             if mongo_wrapper.is_finished():
                 print("Round {} has finished. Exit GA.".format(Config.round_id))
+                elites_db.save()
                 exit(0)
 
             db_update()
@@ -73,7 +77,7 @@ class GeneticAlgorithm(object):
             new_population.extend(elite)
             # write elites to mongo database
             for e in elite:
-                mongo_wrapper.write_elites(e.to_mongo_document(generation))
+                elites_db.add(e.to_json_data(generation, start_time))
 
             selected_parents = roulette_selection(self._population, elites=self._elite_size)
 
@@ -82,10 +86,8 @@ class GeneticAlgorithm(object):
                 crossover.run()
                 child = crossover.child()
                 if child.is_solution():
-                    end_time = time.time()
-                    mongo_wrapper.write_solution(child.to_mongo_document(generation+1), start_time, end_time)
-
-                    # send HTTP message to server
+                    elites_db.add(child.to_json_data(generation+1, start_time))
+                    elites_db.save()
                     print("GA found a solution for round {}!".format(Config.round_id))
                     print("solved")
                     exit(0)
@@ -112,7 +114,8 @@ class GeneticAlgorithm(object):
             if verbose:
                 from gaps.plot import Plot
                 plot.show_fittest(fittest.to_image(), "Generation: {} / {}".format(generation + 1, self._generations))
-            
+
+        elites_db.save()    
         return fittest
 
     def _get_elite_individuals(self, elites):

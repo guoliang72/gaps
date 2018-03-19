@@ -1,5 +1,5 @@
 import numpy as np
-from gaps.crowd.mongodbaccess import mongo_wrapper
+from gaps.crowd.dbaccess import mongo_wrapper
 
 def static_vars(**kwargs):
     """ Decorator for initializing static function variables. """
