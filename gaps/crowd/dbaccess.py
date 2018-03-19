@@ -44,6 +44,9 @@ class JsonDB(object):
 	def __init__(self, db_name):
 		self.db_abspath = os.path.join(JsonDB.DB_DIR, db_name+'.json')
 		self.json_data = []
+		if os.path.exists(self.db_abspath):
+			with open(self.db_abspath, 'r') as f:
+				self.json_data = json.load(f)
 
 	def add(self, v):
 		v['added_time'] = time.time()
