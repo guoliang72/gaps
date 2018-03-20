@@ -30,22 +30,17 @@ class MongoWrapper(object):
 		else:
 			return True
 
-def static_vars(**kwargs):
-    """ Decorator for initializing static function variables. """
-    def decorate(func):
-        for k in kwargs:
-            setattr(func, k, kwargs[k])
-        return func
-    return decorate
-
 class JsonDB(object):
 	DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))),\
 		                  './JsonDB')
-	def __init__(self, db_name):
-		self.db_abspath = os.path.join(JsonDB.DB_DIR, db_name+'.json')
+	def __init__(self, collection_name, doc_name):
+		self.collection_path = os.path.join(JsonDB.DB_DIR, collection_name)
+		if not os.path.exists(self.collection_path):
+			os.mkdir(self.collection_path)
+		self.doc_path = os.path.join(self.collection_path, doc_name+'.json')
 		self.json_data = []
-		if os.path.exists(self.db_abspath):
-			with open(self.db_abspath, 'r') as f:
+		if os.path.exists(self.doc_path):
+			with open(self.doc_path, 'r') as f:
 				self.json_data = json.load(f)
 
 	def add(self, v):
@@ -53,7 +48,7 @@ class JsonDB(object):
 		self.json_data.append(v)
 
 	def save(self):
-		with open(self.db_abspath, 'w') as f:
+		with open(self.doc_path, 'w') as f:
 			json.dump(self.json_data, f)
 
 # singleton

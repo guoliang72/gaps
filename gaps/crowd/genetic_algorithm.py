@@ -47,7 +47,7 @@ class GeneticAlgorithm(object):
         '''
 
         # save elites of each generation.
-        elites_db = JsonDB('elites')
+        elites_db = JsonDB(collection_name='elites', doc_name='round'+str(Config.round_id))
 
         for generation in range(self._generations):
             '''
