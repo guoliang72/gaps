@@ -30,6 +30,7 @@ class Individual(object):
         self.pieces = pieces[:]
         self.rows = rows
         self.columns = columns
+        self._objective = None
         self._fitness = None
         self._is_solution = None
 
@@ -41,6 +42,23 @@ class Individual(object):
 
     def __getitem__(self, key):
         return self.pieces[key * self.columns:(key + 1) * self.columns]
+
+    @property
+    def objective(self):
+        if self._objective is None:
+            objective_value = 0
+            # For each two adjacent pieces in rows
+            for i in range(self.rows):
+                for j in range(self.columns - 1):
+                    ids = (self[i][j].id, self[i][j + 1].id)
+                    objective_value += -ImageAnalysis.get_dissimilarity(ids, orientation="LR")
+            # For each two adjacent pieces in columns
+            for i in range(self.rows - 1):
+                for j in range(self.columns):
+                    ids = (self[i][j].id, self[i + 1][j].id)
+                    objective_value += -ImageAnalysis.get_dissimilarity(ids, orientation="TD")
+            self._objective = objective_value
+        return self._objective
 
     @property
     def fitness(self):
@@ -69,20 +87,8 @@ class Individual(object):
         '''
         """ Evaluate fitness value with crowd-based measure.
         """
-        if self._fitness is None:
-            fitness_value = 0
-            # For each two adjacent pieces in rows
-            for i in range(self.rows):
-                for j in range(self.columns - 1):
-                    ids = (self[i][j].id, self[i][j + 1].id)
-                    fitness_value += -ImageAnalysis.get_dissimilarity(ids, orientation="LR")
-            # For each two adjacent pieces in columns
-            for i in range(self.rows - 1):
-                for j in range(self.columns):
-                    ids = (self[i][j].id, self[i + 1][j].id)
-                    fitness_value += -ImageAnalysis.get_dissimilarity(ids, orientation="TD")
-            # maybe we can try other function?
-            self._fitness = np.exp(fitness_value)
+        if self._fitness is None or self._objective is None:
+            self._fitness = Config.fitness_func(self.objective)
 
         return self._fitness
 
@@ -126,11 +132,17 @@ class Individual(object):
         return self._is_solution
 
     def to_json_data(self, generation, start_time):
-        return dict(
+        ret = dict(
             round_id = Config.round_id,
-            fitness = self.fitness,
             is_solution = self.is_solution(),
             pieces = [piece.id for piece in self.pieces],
             generation = generation,
             start_time = start_time,
+            objective = self.objective,
             )
+        if Config.fitness_func is not None:
+            ret['fitness'] = self.fitness
+        return ret
+    
+    def calc_rank_fitness(self, rank):
+        self._fitness = 2.0 - Config.rank_based_MAX + 2.0 * (Config.rank_based_MAX - 1.0) * rank / (Config.population - 1)
