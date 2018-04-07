@@ -1,6 +1,7 @@
 from gaps.crowd.fitness import dissimilarity_measure
 from gaps.progress_bar import print_progress
 import random
+from gaps.config import Config
 
 
 class ImageAnalysis(object):
@@ -25,17 +26,17 @@ class ImageAnalysis(object):
             # For each edge we keep best matches as a sorted list.
             # Edges with lower dissimilarity_measure have higher priority.
             cls.best_match_table[piece.id] = {
-                "T": [],
-                "R": [],
-                "D": [],
-                "L": []
+                "T": {'elements':[], 'prob_sum': []},
+                "R": {'elements':[], 'prob_sum': []},
+                "D": {'elements':[], 'prob_sum': []},
+                "L": {'elements':[], 'prob_sum': []}
             }
 
         def update_best_match_table(first_piece, second_piece):
             measure = dissimilarity_measure(first_piece, second_piece, orientation)
             cls.put_dissimilarity((first_piece.id, second_piece.id), orientation, measure)
-            cls.best_match_table[second_piece.id][orientation[0]].append((first_piece.id, measure))
-            cls.best_match_table[first_piece.id][orientation[1]].append((second_piece.id, measure))
+            cls.best_match_table[second_piece.id][orientation[0]]['elements'].append((first_piece.id, measure))
+            cls.best_match_table[first_piece.id][orientation[1]]['elements'].append((second_piece.id, measure))
 
         # Calculate dissimilarity measures and best matches for each piece.
         iterations = len(pieces) - 1
@@ -46,13 +47,24 @@ class ImageAnalysis(object):
                     update_best_match_table(pieces[first], pieces[second])
                     update_best_match_table(pieces[second], pieces[first])
 
+        def calculate_prob_sum(piece_id, orientation):
+            fitness_values = list(map(lambda x: Config.adjacent_fitness(-x[1]), \
+                cls.best_match_table[piece_id][orientation]['elements']))
+            cls.best_match_table[piece_id][orientation]['prob_sum'] = \
+                [sum(fitness_values[:i+1]) for i in range(len(fitness_values))]
+
         for piece in pieces:
             for orientation in ["T", "L", "R", "D"]:
                 #! problem: dissimilarity measure of many pairs would be 0. 
                 #! We need to shuffle to avoid the same piece being tried many times, which
                 #! slows down the exectuion.
-                random.shuffle(cls.best_match_table[piece.id][orientation])
-                cls.best_match_table[piece.id][orientation].sort(key=lambda x: x[1])
+                random.shuffle(cls.best_match_table[piece.id][orientation]['elements'])
+                cls.best_match_table[piece.id][orientation]['elements'].sort(key=lambda x: x[1])
+                '''
+                calculate_prob_sum(piece.id, orientation)
+                '''
+                
+
 
     @classmethod
     def put_dissimilarity(cls, ids, orientation, value):
@@ -93,4 +105,4 @@ class ImageAnalysis(object):
     @classmethod
     def best_match(cls, piece, orientation):
         """"Returns best match piece for given piece and orientation"""
-        return cls.best_match_table[piece][orientation][0][0]
+        return cls.best_match_table[piece][orientation]['elements'][0][0]

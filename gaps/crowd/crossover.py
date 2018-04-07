@@ -1,11 +1,13 @@
 import random
 import heapq
+import bisect
 
 from gaps.crowd.image_analysis import ImageAnalysis
 from gaps.crowd.individual import Individual
 
-SHARED_PIECE_PRIORITY = -10
-BUDDY_PIECE_PRIORITY = -1
+# probably not the best way to do this
+SHARED_PIECE_PRIORITY = -1e100
+BUDDY_PIECE_PRIORITY = -1e99
 
 
 class Crossover(object):
@@ -27,6 +29,9 @@ class Crossover(object):
 
         # Priority queue
         self._candidate_pieces = []
+
+        # priority pool for fitness-based random selection
+        # needed??
 
     def child(self):
         pieces = [None] * self._pieces_length
@@ -80,7 +85,12 @@ class Crossover(object):
             self._add_buddy_piece_candidate(buddy_piece, position, (piece_id, orientation))
             return
 
+
+
         best_match_piece, priority = self._get_best_match_piece(piece_id, orientation)
+        '''
+        best_match_piece, priority = self._get_random_piece(piece_id, orientation)
+        '''
         if self._is_valid_piece(best_match_piece):
             self._add_best_match_piece_candidate(best_match_piece, position, priority, (piece_id, orientation))
             return
@@ -92,7 +102,7 @@ class Crossover(object):
 
         if first_parent_edge == second_parent_edge:
             return first_parent_edge
-
+            
     def _get_buddy_piece(self, piece_id, orientation):
         first_buddy = ImageAnalysis.best_match(piece_id, orientation)
         second_buddy = ImageAnalysis.best_match(first_buddy, complementary_orientation(orientation))
@@ -102,10 +112,22 @@ class Crossover(object):
                 if edge == first_buddy:
                     return edge
 
+
     def _get_best_match_piece(self, piece_id, orientation):
-        for piece, dissimilarity_measure in ImageAnalysis.best_match_table[piece_id][orientation]:
+        for piece, dissimilarity_measure in ImageAnalysis.best_match_table[piece_id][orientation]['elements']:
             if self._is_valid_piece(piece):
                 return piece, dissimilarity_measure
+    '''
+    def _get_random_piece(self, piece_id, orientation):
+        prob_sum = ImageAnalysis.best_match_table[piece_id][orientation]['prob_sum']
+        # probably not a good idea. should remove the item if it is not valid.
+        while True:
+            random_select = random.uniform(0, prob_sum[-1])
+            selected_index = bisect.bisect_left(prob_sum, random_select)
+            piece, dissimilarity_measure = ImageAnalysis.best_match_table[piece_id][orientation]['elements'][selected_index]
+            if self._is_valid_piece(piece):
+                return piece, dissimilarity_measure
+    '''
 
     def _add_shared_piece_candidate(self, piece_id, position, relative_piece):
         piece_candidate = (SHARED_PIECE_PRIORITY, (position, piece_id), relative_piece)

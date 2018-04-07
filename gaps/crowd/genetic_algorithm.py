@@ -1,5 +1,6 @@
 from __future__ import print_function
 import time
+import random
 from operator import attrgetter
 from gaps import image_helpers
 from gaps.selection import roulette_selection
@@ -47,35 +48,54 @@ class GeneticAlgorithm(object):
         '''
 
         # save elites of each generation.
-        elites_db = JsonDB(collection_name='elites', doc_name='round'+str(Config.round_id))
+        if not Config.cli_args.offline:
+            # online
+            elites_db = JsonDB(collection_name='elites', doc_name='round'+str(Config.round_id))
+        else:
+            # offline
+            # from IPython import embed;embed()
+            elites_db = JsonDB(collection_name='elites_offline', doc_name='round'+str(Config.round_id)+'_'+Config.fitness_func_name+'_paper_'+str(Config.rank_based_MAX)+'_skiprecom')
 
         for generation in range(self._generations):
-            '''
-            print_progress(generation, self._generations - 1, prefix="=== Solving puzzle: ")
-            '''
+            
+            if Config.cli_args.offline:
+                print_progress(generation, self._generations - 1, prefix="=== Solving puzzle offline: ", start_time=start_time)
+            
 
             ## In crowd-based algorithm, we need to access database to updata fintess measure
             ## at the beginning of each generation.
             # update fitness from database.
 
-            if mongo_wrapper.is_finished():
-                print("Round {} has finished. Exit GA.".format(Config.round_id))
-                elites_db.save()
-                exit(0)
+            if not Config.cli_args.offline:
+                if mongo_wrapper.is_finished():
+                    print("Round {} has finished. Exit GA.".format(Config.round_id))
+                    elites_db.save()
+                    exit(0)
 
             db_update()
             # calculate dissimilarity and best_match_table.
             ImageAnalysis.analyze_image(self._pieces)
             # fitness of all individuals need to be re-calculated.
             for _individual in self._population:
+                _individual._objective = None
                 _individual._fitness = None
 
             new_population = []
 
+            # random.shuffle(self._population)
+            self._population.sort(key=attrgetter("objective"))
             # Elitism
-            elite = self._get_elite_individuals(elites=self._elite_size)
+            # elite = self._get_elite_individuals(elites=self._elite_size)
+            elite = self._population[-self._elite_size:]
             new_population.extend(elite)
-            # write elites to mongo database
+            
+            if Config.fitness_func_name == 'rank-based':
+                #!!! self._population needs to be sorted first
+                # for rank, indiv in enumerate(self._population):
+                #     indiv.calc_rank_fitness(rank)
+                self.calc_rank_fitness()
+            
+            # write elites to Json
             for e in elite:
                 elites_db.add(e.to_json_data(generation, start_time))
 
@@ -117,11 +137,27 @@ class GeneticAlgorithm(object):
 
         elites_db.save()    
         return fittest
-
+    '''
     def _get_elite_individuals(self, elites):
         """Returns first 'elite_count' fittest individuals from population"""
         return sorted(self._population, key=attrgetter("fitness"))[-elites:]
+    '''
 
     def _best_individual(self):
         """Returns the fittest individual from population"""
         return max(self._population, key=attrgetter("fitness"))
+
+    def calc_rank_fitness(self):
+        rank1 = 0
+        while rank1 < len(self._population):
+            fitness1 = Config.get_rank_fitness(rank1, len(self._population))
+            indiv1 = self._population[rank1]
+            rank2 = rank1 + 1
+            for rank2 in range(rank1+1, len(self._population)):
+                indiv2 = self._population[rank2]
+                if abs(indiv1.objective-indiv2.objective) > 1e-6:
+                    break
+            fitness2 = Config.get_rank_fitness(rank2 - 1, len(self._population))
+            for indiv in self._population[rank1: rank2]:
+                indiv._fitness = (fitness1 + fitness2) / 2.0
+            rank1 = rank2
