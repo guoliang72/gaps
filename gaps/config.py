@@ -13,6 +13,8 @@ class ConfigClass:
 
 	generations = 10000000
 
+	multiprocess = False
+
 	# roulette_alt = False: select one individual in each round of roulette.
 	# roulette_alt = True: select two individuals(parents) in each round of roulette.
 	roulette_alt = False
@@ -27,6 +29,9 @@ class ConfigClass:
 
 	# command line arguments. This is set by ./bin/gaps.
 	cli_args = None
+
+	# number of processes for multiprocessing on crossover operation.
+	process_num = 2
 
 	# fitness function alternatives.
 	# x = \sum{sup_num - opp_num}
