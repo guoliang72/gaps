@@ -7,22 +7,23 @@ class ConfigClass:
 
 	population = 600
 
+	elite_percentage = 0.05
+
+	elite_size = int(population * elite_percentage)
+
 	generations = 10000000
 
 	# roulette_alt = False: select one individual in each round of roulette.
 	# roulette_alt = True: select two individuals(parents) in each round of roulette.
-	roulette_alt = False
+	roulette_alt = True
 
-	# mongodb_ip = "localhost"
-	mongodb_ip = "39.106.112.44"
+	mongodb_ip = "localhost"
 	mongodb_port = 27017
 
 	# mongodb authentication.
-	authentication = True
+	authentication = False
 	# username = "username" # change it to your username.
 	# password = "password" # change it to your password.
-	username = "root"
-	password = "Saw@CISE@pku"
 
 	# command line arguments. This is set by ./bin/gaps.
 	cli_args = None
@@ -51,7 +52,7 @@ class ConfigClass:
 	_fitness_func_name = None
 	_fitness_func = None
 
-	rank_based_MAX = 1.9
+	rank_based_MAX = 1.90
 
 	@property
 	def fitness_func(self):

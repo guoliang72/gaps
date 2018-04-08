@@ -58,7 +58,7 @@ def db_update():
                 exit(1)
             k = str(first_piece_id)+orientation+str(second_piece_id)
             if d['operation'].find('+') != -1:
-                measure_dict[k] = measure_dict.get(k, 0) - (1 if d['player_name'] != '' else 0.8) # 0.8
+                measure_dict[k] = measure_dict.get(k, 0) - 1
                 print('{}/{}:{}->{}->{}'.format(d['player_name'],d['operation'], first_piece_id, orientation, second_piece_id))
             else:
                 measure_dict[k] = measure_dict.get(k, 0) + 2

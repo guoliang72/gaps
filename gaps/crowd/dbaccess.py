@@ -35,6 +35,9 @@ class MongoWrapper(object):
 	def __del__(self):
 		self.client.close()
 
+# singleton
+mongo_wrapper = MongoWrapper()
+
 class JsonDB(object):
 	DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))),\
 		                  './JsonDB')
@@ -67,5 +70,4 @@ class JsonDB(object):
 	def __del__(self):
 		self.save()
 
-# singleton
-mongo_wrapper = MongoWrapper()
+

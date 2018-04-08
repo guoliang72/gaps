@@ -70,11 +70,15 @@ if __name__ == "__main__":
     image = cv2.imread(args.image)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
+    assert args.size is not None
+    piece_size = args.size
+    '''
     if args.size is not None:
         piece_size = args.size
     else:
         detector = SizeDetector(image)
         piece_size = detector.detect_piece_size()
+    '''
 
     '''
     print("\n=== Population:  {}".format(args.population))

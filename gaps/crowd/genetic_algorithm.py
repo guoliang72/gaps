@@ -19,11 +19,11 @@ class GeneticAlgorithm(object):
 
     TERMINATION_THRESHOLD = 10
 
-    def __init__(self, image, piece_size, population_size, generations, r, c, elite_size=2):
+    def __init__(self, image, piece_size, population_size, generations, r, c):
         self._image = image
         self._piece_size = piece_size
         self._generations = generations
-        self._elite_size = elite_size
+        self._elite_size = Config.elite_size
         pieces, rows, columns = image_helpers.flatten_image(image, piece_size, indexed=True, r=r, c=c)
         self._population = [Individual(pieces, rows, columns) for _ in range(population_size)]
         self._pieces = pieces
@@ -54,7 +54,12 @@ class GeneticAlgorithm(object):
         else:
             # offline
             # from IPython import embed;embed()
-            elites_db = JsonDB(collection_name='elites_offline', doc_name='round'+str(Config.round_id)+'_'+Config.fitness_func_name+'_paper_'+str(Config.rank_based_MAX)+'_skiprecom')
+            elites_db = JsonDB(collection_name='elites_offline', doc_name='round'+str(Config.round_id)\
+                +'_'+Config.fitness_func_name+'_paper_'+str(Config.rank_based_MAX)+'_skiprecom_'\
+                +str(Config.population)+'_'+str(Config.elite_percentage)\
+                +('_SUS' if Config.roulette_alt == True else ''))
+        
+        solution_found = False
 
         for generation in range(self._generations):
             
@@ -99,6 +104,11 @@ class GeneticAlgorithm(object):
             for e in elite:
                 elites_db.add(e.to_json_data(generation, start_time))
 
+            if solution_found: 
+                print("GA found a solution for round {}!".format(Config.round_id))
+                print("solved")
+                exit(0)
+
             selected_parents = roulette_selection(self._population, elites=self._elite_size)
 
             for first_parent, second_parent in selected_parents:
@@ -108,9 +118,7 @@ class GeneticAlgorithm(object):
                 if child.is_solution():
                     elites_db.add(child.to_json_data(generation+1, start_time))
                     elites_db.save()
-                    print("GA found a solution for round {}!".format(Config.round_id))
-                    print("solved")
-                    exit(0)
+                    solution_found = True
                 new_population.append(child)
 
             fittest = self._best_individual()
