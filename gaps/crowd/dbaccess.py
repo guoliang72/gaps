@@ -70,4 +70,3 @@ class JsonDB(object):
 	def __del__(self):
 		self.save()
 
-

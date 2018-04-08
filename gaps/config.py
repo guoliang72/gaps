@@ -15,7 +15,7 @@ class ConfigClass:
 
 	# roulette_alt = False: select one individual in each round of roulette.
 	# roulette_alt = True: select two individuals(parents) in each round of roulette.
-	roulette_alt = True
+	roulette_alt = False
 
 	mongodb_ip = "localhost"
 	mongodb_port = 27017
