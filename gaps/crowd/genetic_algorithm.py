@@ -12,21 +12,21 @@ from gaps.crowd.image_analysis import ImageAnalysis
 from gaps.crowd.fitness import db_update
 from gaps.crowd.dbaccess import JsonDB, mongo_wrapper
 from gaps.config import Config
-from multiprocessing import Pool
+from multiprocessing import Process, Queue
 
-def worker(parents):
-    t1 = time.time()
-    has_solution, solution = False, None
-    children = []
-    for first_parent, second_parent in parents:
-        crossover = Crossover(first_parent, second_parent)
-        crossover.run()
-        child = crossover.child()
-        children.append(child)
-        if child.is_solution():
-            has_solution = True
-            solution = child
-    return children, has_solution, solution, time.time()-t1
+def worker(data_q, res_q):
+    while True:
+        best_match_table, parents = data_q.get(block=True)
+        ImageAnalysis.best_match_table = best_match_table
+        children = []
+        for first_parent, second_parent in parents:
+            crossover = Crossover(first_parent, second_parent)
+            crossover.run()
+            child = crossover.child()
+            child.is_solution() # is_solution is a decorated function. calculate here.
+            children.append(child)
+        res_q.put(children, block=True)
+    # return children, has_solution, solution
 
 # Don't create two instantces for this class
 class GeneticAlgorithm(object):
@@ -67,12 +67,22 @@ class GeneticAlgorithm(object):
             elites_db = JsonDB(collection_name='elites', doc_name='round'+str(Config.round_id))
         else:
             # offline
-            elites_db = JsonDB(collection_name='elites_offline_mp', doc_name='round'+str(Config.round_id)\
+            collection_name = 'elites_offline_mp' if Config.multiprocess else 'elites_offline'
+            elites_db = JsonDB(collection_name=collection_name, doc_name='round'+str(Config.round_id)\
                 +'_'+Config.fitness_func_name+'_paper_'+str(Config.rank_based_MAX)+'_skiprecom_'\
-                +str(Config.population)+'_'+str(Config.elite_percentage)\
+                +str(Config.population)+'_'+str(Config.elite_percentage)+'_skiprecom'\
                 +('_SUS' if Config.roulette_alt == True else ''))
         
         solution_found = False
+
+        if Config.multiprocess:
+            data_q = Queue()
+            res_q = Queue()
+            processes = []
+            for i in range(Config.process_num):
+                p = Process(target=worker, args=(data_q, res_q))
+                p.start()
+                processes.append(p)
 
         for generation in range(self._generations):
             
@@ -120,6 +130,9 @@ class GeneticAlgorithm(object):
             if solution_found: 
                 print("GA found a solution for round {}!".format(Config.round_id))
                 print("solved")
+                if Config.multiprocess:
+                    for p in processes:
+                        p.terminate()
                 exit(0)
 
             selected_parents = roulette_selection(self._population, elites=self._elite_size)
@@ -134,23 +147,44 @@ class GeneticAlgorithm(object):
                 # assign the rest to the last process
                 worker_args.append(selected_parents[(len(selected_parents)//Config.process_num)*(Config.process_num-1):len(selected_parents)])
                 # t1 = time.time()
-                with Pool(processes=Config.process_num) as pool:
-                    t1 = time.time()
-                    results = pool.map(worker, worker_args)
-                    print('from mp:{}'.format(time.time()-t1))
+                # with Pool(processes=Config.process_num) as pool:
+                #     t1 = time.time()
+                #     results = pool.map(worker, worker_args)
+                #     print('from mp:{}'.format(time.time()-t1))
+                for i in range(Config.process_num):
+                    data_q.put((ImageAnalysis.best_match_table, worker_args[i]),\
+                        block=True)
+                results = []
+                for i in range(Config.process_num):
+                    results.append(res_q.get(block=True))
+
             else:
                 # non multiprocessing
-                results = [worker(selected_parents)]
+                result = []
+                for first_parent, second_parent in selected_parents:
+                    crossover = Crossover(first_parent, second_parent)
+                    crossover.run()
+                    child = crossover.child()
+                    result.append(child)
+                    # if child.is_solution():
+                    #     elites_db.add(child.to_json_data(generation+1, start_time))
+                    #     elites_db.save()
+                    #     solution_found = True
+                    # new_population.append(child)
+                results = [result]
 
-            time_count = 0
             for result in results:
-                new_population.extend(result[0])
-                time_count += result[3]
-                if result[1] and not solution_found: # has solution
-                    solution_found = True
-                    elites_db.add(result[2].to_json_data(generation+1, start_time))
-                    elites_db.save()
-            print(time_count)
+                new_population.extend(result)
+                for child in result:
+                    if child.is_solution():
+                        solution_found = True
+                        # elites_db.add(result[2].to_json_data(generation+1, start_time))
+                        # elites_db.save()
+                # time_count += result[3]
+                # if result[1] and not solution_found: # has solution
+                #     solution_found = True
+                #     elites_db.add(result[2].to_json_data(generation+1, start_time))
+                #     elites_db.save()
         
 
             fittest = self._best_individual()

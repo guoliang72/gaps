@@ -15,7 +15,7 @@ class Piece(object):
     """
 
     def __init__(self, image, index):
-        self.image = image[:]
+        # self.image = image[:]
         self.id = index
 
     def __getitem__(self, index):

@@ -31,7 +31,7 @@ class ConfigClass:
 	cli_args = None
 
 	# number of processes for multiprocessing on crossover operation.
-	process_num = 2
+	process_num = 4
 
 	# fitness function alternatives.
 	# x = \sum{sup_num - opp_num}

@@ -19,8 +19,6 @@ from gaps.size_detector import SizeDetector
 from gaps.config import Config
 from gaps.crowd.dbaccess import mongo_wrapper
 
-GENERATIONS = 20
-POPULATION = 200
 
 '''
 def show_image(img, title):
@@ -34,8 +32,8 @@ def parse_arguments():
     """Parses input arguments required to solve puzzle"""
     parser = argparse.ArgumentParser(description="A Genetic based solver for jigsaw puzzles")
     parser.add_argument("--image", type=str, default="out.jpg", help="Input image.")
-    parser.add_argument("--generations", type=int, default=GENERATIONS, help="Num of generations.")
-    parser.add_argument("--population", type=int, default=POPULATION, help="Size of population.")
+    # parser.add_argument("--generations", type=int, help="Num of generations.")
+    # parser.add_argument("--population", type=int, default=POPULATION, help="Size of population.")
     parser.add_argument("--size", type=int, help="Single piece size in pixels.")
     parser.add_argument("--verbose", action="store_true", help="Show best individual after each generation.")
     parser.add_argument("--fitness", type=str, choices=['rank-based', 'sigmoid', 'exponent'], required=True)
