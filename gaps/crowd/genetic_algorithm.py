@@ -67,12 +67,14 @@ class GeneticAlgorithm(object):
             elites_db = JsonDB(collection_name='elites', doc_name='round'+str(Config.round_id))
         else:
             # offline
-            collection_name = 'elites_offline_mp' if Config.multiprocess else 'elites_offline'
+            collection_name = 'elites_offline_mp' if Config.multiprocess else \
+                'elites_offline_pixel' if Config.use_pixel else'elites_offline'
             elites_db = JsonDB(collection_name=collection_name, doc_name='round'+str(Config.round_id)\
                 +'_'+Config.fitness_func_name+'_paper_'+str(Config.rank_based_MAX)+'_skiprecom_'\
-                +str(Config.population)+'_'+str(Config.elite_percentage)+'_skiprecom'\
-                +('_SUS' if Config.roulette_alt == True else ''))
-        
+                +str(Config.population)+'_'+str(Config.elite_percentage)\
+                +('_SUS' if Config.roulette_alt == True else '')+('_{}'.format(Config.use_pixel_shred)\
+                if Config.use_pixel else '')+'_'+str(Config.erase_edge)+'_debug')
+       
         solution_found = False
 
         if Config.multiprocess:
@@ -101,6 +103,7 @@ class GeneticAlgorithm(object):
                     exit(0)
 
             db_update()
+            print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
             # calculate dissimilarity and best_match_table.
             ImageAnalysis.analyze_image(self._pieces)
             # fitness of all individuals need to be re-calculated.
@@ -127,7 +130,7 @@ class GeneticAlgorithm(object):
             for e in elite:
                 elites_db.add(e.to_json_data(generation, start_time))
 
-            if solution_found: 
+            if solution_found:
                 print("GA found a solution for round {}!".format(Config.round_id))
                 print("solved")
                 if Config.multiprocess:
@@ -178,8 +181,9 @@ class GeneticAlgorithm(object):
                 for child in result:
                     if child.is_solution():
                         solution_found = True
-                        # elites_db.add(result[2].to_json_data(generation+1, start_time))
-                        # elites_db.save()
+                        elites_db.add(child.to_json_data(generation+1, start_time))
+                        elites_db.save()
+                        break
                 # time_count += result[3]
                 # if result[1] and not solution_found: # has solution
                 #     solution_found = True

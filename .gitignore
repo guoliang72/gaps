@@ -8,6 +8,7 @@ __pycache__/
 out.jpg
 *_solution.jpg
 puzzle.jpg
+images/
 
 # C extensions
 *.so

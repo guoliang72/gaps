@@ -14,7 +14,8 @@ def static_vars(**kwargs):
 
 @static_vars(mongodb=mongo_wrapper, 
     pre_timestamp=get_formatted_date(mongo_wrapper.get_round_start_secs()),
-    secs_diff=time.time()-mongo_wrapper.get_round_start_secs())
+    secs_diff=time.time()-mongo_wrapper.get_round_start_secs(),
+    crowd_edge_count=0)
 def db_update():
     """ Update dissimilarity_measure.measure_didct from mongo database. """
     if not Config.cli_args.offline:
@@ -57,11 +58,16 @@ def db_update():
                 print('unknown direction:{}'.format(d['direction']))
                 exit(1)
             k = str(first_piece_id)+orientation+str(second_piece_id)
+            if k in measure_dict:
+                val = measure_dict[k]
+            else:
+                val = 0
+                db_update.crowd_edge_count += 1
             if d['operation'].find('+') != -1:
-                measure_dict[k] = measure_dict.get(k, 0) - 1
+                measure_dict[k] = val - 1
                 print('{}/{}:{}->{}->{}'.format(d['player_name'],d['operation'], first_piece_id, orientation, second_piece_id))
             else:
-                measure_dict[k] = measure_dict.get(k, 0) + 2
+                measure_dict[k] = val + 2
                 print('{}/{}:{}->{}->{}'.format(d['player_name'],d['operation'], first_piece_id, orientation, second_piece_id))
         db_update.pre_timestamp = cur_timestamp
 
@@ -95,6 +101,36 @@ def dissimilarity_measure(first_piece, second_piece, orientation="LR"):
     # | D |
 
     '''
-    value = dissimilarity_measure.measure_dict.get(str(first_piece.id)+orientation+str(second_piece.id), 0)
-    return value
+    k = str(first_piece.id)+orientation+str(second_piece.id)
+    if not Config.use_pixel:
+        return dissimilarity_measure.measure_dict.get(k, 0)
+
+    else:
+        if k in dissimilarity_measure.measure_dict:
+            return dissimilarity_measure.measure_dict[k]
+        if db_update.crowd_edge_count >= int(Config.use_pixel_shred * Config.total_edges):
+            # use pixel difference
+            # | L | - | R |
+            if orientation == "LR":
+                color_difference = first_piece[:, -Config.erase_edge-1, :] - second_piece[:, Config.erase_edge, :]
+
+            # | T |
+            #   |
+            # | D |
+            if orientation == "TD":
+                color_difference = first_piece[Config.erase_edge-1, :, :] - second_piece[Config.erase_edge, :, :]
+
+            squared_color_difference = np.power(color_difference / 255.0, 2)
+            color_difference_per_row = np.sum(squared_color_difference, axis=1)
+            total_difference = np.sum(color_difference_per_row, axis=0)
+
+            value = np.sqrt(total_difference)
+
+            value /= np.sqrt(Config.cli_args.size * 3) # to make sure value < 1
+
+            # value = -value
+            return value
+        else:
+            # not use pixel difference
+            return 0
 

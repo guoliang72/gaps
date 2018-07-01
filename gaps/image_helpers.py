@@ -1,5 +1,6 @@
 import numpy as np
 from gaps.piece import Piece
+from gaps.config import Config
 
 
 def flatten_image(image, piece_size, indexed=False, r=None, c=None):
@@ -28,6 +29,9 @@ def flatten_image(image, piece_size, indexed=False, r=None, c=None):
             left, top, w, h = x * piece_size, y * piece_size, (x + 1) * piece_size, (y + 1) * piece_size
             piece = np.empty((piece_size, piece_size, image.shape[2]))
             piece[:piece_size, :piece_size, :] = image[top:h, left:w, :]
+            if Config.erase_edge > 0:
+                erase_edge = Config.erase_edge
+                piece[:erase_edge, :], piece[-erase_edge:, :], piece[:, :erase_edge], piece[:, -erase_edge:] = 0, 0, 0, 0
             pieces.append(piece)
     
     if indexed:

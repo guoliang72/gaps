@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 from gaps.config import Config
 from gaps.utils import cvt_to_secs
+import datetime
 import os
 import json
 import time
@@ -67,6 +68,21 @@ class JsonDB(object):
 		with open(self.doc_path, 'w') as f:
 			json.dump(self.json_data, f)
 
+	def add_solution_info(self):
+		for item in self.json_data:
+			if item['is_solution']:
+				solution_found = True
+				timespent = item['added_time'] - item['start_time']
+				timespent = str(datetime.timedelta(seconds=timespent))
+				break
+		else:
+			item = self.json_data[-1]
+			timespent = item['added_time'] - item['start_time']
+			timespent = str(datetime.timedelta(seconds=timespent))
+			solution_found = False
+		self.json_data.append({'solution_found':solution_found, 'timespent':timespent})
+
 	def __del__(self):
+		self.add_solution_info()
 		self.save()
 
