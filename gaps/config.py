@@ -36,13 +36,13 @@ class ConfigClass:
 	cli_args = None
 
 	# number of processes for multiprocessing on crossover operation.
-	process_num = 2
+	process_num = 1
 
 	_total_edges = None
 
 	erase_edge = 2
 
-	offline_start_percent = 1.0
+	offline_start_percent = 0.5
 
 	@property
 	def total_edges(self):
