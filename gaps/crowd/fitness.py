@@ -46,7 +46,7 @@ def db_update():
         # offline
         cur_timestamp = time.time() * 1000 - db_update.secs_diff
         measure_dict = dissimilarity_measure.measure_dict
-        cogs = list(mongodb.cogs_documents(start_timestamp=db_update.pre_timestamp, end_timestamp=cur_timestamp))
+        cogs = list(db_update.mongodb.cogs_documents(start_timestamp=db_update.pre_timestamp, end_timestamp=cur_timestamp))
         for cog in cogs:
             edges = cog['edges_changed']
             crowd_edge_count = len(edges)

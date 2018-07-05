@@ -36,7 +36,7 @@ class ConfigClass:
 	cli_args = None
 
 	# number of processes for multiprocessing on crossover operation.
-	process_num = 4
+	process_num = 2
 
 	_total_edges = None
 

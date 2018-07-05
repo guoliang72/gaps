@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from gaps.config import Config
-from gaps.utils import cvt_to_secs
+from gaps.utils import cvt_to_milisecs
 import datetime
 import os
 import json
