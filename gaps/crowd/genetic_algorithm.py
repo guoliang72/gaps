@@ -132,7 +132,10 @@ class GeneticAlgorithm(object):
 
             if solution_found:
                 print("GA found a solution for round {}!".format(Config.round_id))
-                print("solved")
+                winner_time = mongo_wrapper.get_round_winner_time_milisecs() / 1000.0
+                GA_time = time.time() - start_time + \
+                    mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent / 1000.0
+                print("solved, winner time: %d, GA time: %d" % (winner_time, GA_time))
                 if Config.multiprocess:
                     for p in processes:
                         p.terminate()

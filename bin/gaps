@@ -102,7 +102,11 @@ if __name__ == "__main__":
     solution = algorithm.start_evolution(args.verbose)
     end = time()
 
-    print("\n=== Done in {0:.3f} s".format(end - start))
+    if args.offline:
+        halfStartTime = mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent
+        print("\n=== Done in {0:.3f} s".format(end - start + halfStartTime / 1000))
+    else:
+        print("\n=== Done in {0:.3f} s".format(end - start))
 
     solution_image = solution.to_image()
     solution_image_name = args.image.split(".")[0] + "_solution.jpg"

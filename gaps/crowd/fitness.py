@@ -13,8 +13,7 @@ def static_vars(**kwargs):
     return decorate
 
 @static_vars(mongodb=mongo_wrapper, 
-    pre_timestamp=0,
-    secs_diff=time.time() * 1000,
+    secs_diff=time.time() * 1000 - mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent,
     crowd_edge_count=0)
 def db_update():
     """ Update dissimilarity_measure.measure_didct from mongo database. """
@@ -22,7 +21,7 @@ def db_update():
         # online
         dissimilarity_measure.measure_dict.clear()
         edges = db_update.mongodb.edges_documents()
-        crowd_edge_count = len(edges)
+        db_update.crowd_edge_count = len(edges)
         for e in edges:
             edge = edges[e]
             first_piece_id = edge['x']
@@ -44,12 +43,14 @@ def db_update():
             dissimilarity_measure.measure_dict[str(first_piece_id)+orientation+str(second_piece_id)] = measure
     else:
         # offline
-        cur_timestamp = time.time() * 1000 - db_update.secs_diff
+        timestamp = time.time() * 1000 - db_update.secs_diff
         measure_dict = dissimilarity_measure.measure_dict
-        cogs = list(db_update.mongodb.cogs_documents(start_timestamp=db_update.pre_timestamp, end_timestamp=cur_timestamp))
-        for cog in cogs:
+        cogs = list(db_update.mongodb.cogs_documents(timestamp=timestamp))
+        if len(cogs) > 0:
+            cog = cogs[-1]
             edges = cog['edges_changed']
-            crowd_edge_count = len(edges)
+            db_update.crowd_edge_count = len(edges)
+            # print("crowd_edge_count: %d" % crowd_edge_count)
             for e in edges:
                 first_piece_id, second_piece_id = int(e.split('-')[0][:-1]), int(e.split('-')[1][1:])
                 if e.split('-')[0][-1] == 'L':
@@ -60,7 +61,6 @@ def db_update():
                 edge = edges[e]
                 measure = float(edge['wn']) - float(edge['wp'])
                 measure_dict[key] = measure
-        db_update.pre_timestamp = cur_timestamp
 
 
 

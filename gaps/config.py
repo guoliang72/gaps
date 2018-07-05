@@ -42,6 +42,8 @@ class ConfigClass:
 
 	erase_edge = 2
 
+	offline_start_percent = 1.0
+
 	@property
 	def total_edges(self):
 		if self._total_edges is None:

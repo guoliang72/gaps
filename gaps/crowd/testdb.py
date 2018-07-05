@@ -41,6 +41,12 @@ class MongoWrapper(object):
 			return False
 		else:
 			return True
+
+	def get_round_winner_time_milisecs(self):
+		formatted_date = self.db['rounds'].find_one({'round_id': round_id})['winner_time']
+		hour, minute, second = formatted_date.split(':')
+		miliseconds = (int(hour) * 3600 + int(minute) * 60 + int(second)) * 1000
+		return miliseconds
 	
 	def __del__(self):
 		self.client.close()
@@ -49,7 +55,6 @@ class MongoWrapper(object):
 mongodb = MongoWrapper()
 
 print(mongodb.db['rounds'].find_one({'round_id': round_id})['players_num'])
-print(mongodb.db['rounds'].find_one({'round_id': round_id})['winner_time'])
 start_time = mongodb.get_round_start_secs()
 print(time.time() * 1000 - start_time)
 
@@ -92,3 +97,5 @@ for cog in cogs:
 		key = str(first_piece_id)+orient+str(second_piece_id)
 		edge = edges[e]
 		measure = float(edge['wn']) - float(edge['wp'])
+
+print(mongodb.get_round_winner_time_milisecs())
