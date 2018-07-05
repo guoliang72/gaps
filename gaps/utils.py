@@ -14,11 +14,10 @@ def get_formatted_date(secs = None):
 					 '{:03d}'.format(ms).rstrip('0')
 	return formatted_date
  
-def cvt_to_secs(formatted_date):
+def cvt_to_milisecs(formatted_date):
 	tmp = formatted_date.split()
 	year, month, day = map(lambda x: int(x), tmp[0].split('-'))
 	hour, minute, second, ms = map(lambda x:int(x), tmp[1].split(':'))
 	dt = datetime.datetime(year, month, day, hour, minute, second)
-	secs = float(time.mktime(dt.timetuple()))
-	secs += ms / 1000.0
-	return secs
+	ms = time.mktime(dt.timetuple()) * 1000 + ms
+	return ms

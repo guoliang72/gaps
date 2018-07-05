@@ -13,62 +13,53 @@ def static_vars(**kwargs):
     return decorate
 
 @static_vars(mongodb=mongo_wrapper, 
-    pre_timestamp=get_formatted_date(mongo_wrapper.get_round_start_secs()),
-    secs_diff=time.time()-mongo_wrapper.get_round_start_secs(),
+    pre_timestamp=0,
+    secs_diff=time.time() * 1000,
     crowd_edge_count=0)
 def db_update():
     """ Update dissimilarity_measure.measure_didct from mongo database. """
     if not Config.cli_args.offline:
         # online
         dissimilarity_measure.measure_dict.clear()
-        for d in db_update.mongodb.nodes_documents():
-            first_piece_id = d['index']
-            for orient, orientation in zip(['right', 'bottom'], ['LR', 'TD']):
-                for link in d[orient]:
-                    second_piece_id = link['index']
-                    # In crowd-based algorithm, dissimilarity measure = -(opp_num - sup_num)
-                    measure = link['opp_num'] - link['sup_num']
-                    dissimilarity_measure.measure_dict[str(first_piece_id)+orientation+str(second_piece_id)] = measure
+        edges = db_update.mongodb.edges_documents()
+        crowd_edge_count = len(edges)
+        for e in edges:
+            edge = edges[e]
+            first_piece_id = edge['x']
+            if edge['tag'] == 'L-R':
+                orient = 'LR'
+            else:
+                orient = 'TD'
+            second_piece_id = edge['y']
+            wp = edge['weight']
+            confidence = edge['confidence']
+            if confidence > 0:
+                wn = wp / confidence - wp + 0.0
+            else:
+                wn = 0.0
+                opposers = edge['opposers']
+                for o in opposers:
+                    wn += opposers[o]
+            measure = wn - wp
+            dissimilarity_measure.measure_dict[str(first_piece_id)+orientation+str(second_piece_id)] = measure
     else:
         # offline
-        cur_timestamp = get_formatted_date(time.time()-db_update.secs_diff)
+        cur_timestamp = time.time() * 1000 - db_update.secs_diff
         measure_dict = dissimilarity_measure.measure_dict
-        for d in db_update.mongodb.actions_documents(start_timestamp=db_update.pre_timestamp, end_timestamp=cur_timestamp):
-            #print("new action by {}.".format(d['player_name'] if d['player_name'] != '' else 'recommendation'))
-            # skip gram
-            if d['player_name'] == '':
-                #print("skip recommendation")
-                continue
-            # if d['direction'] not in ['bottom', 'right']:
-            #     continue
-            if d['direction'] in ['left', 'top']:
-                # reverse the direction
-                first_piece_id, second_piece_id = d['to'], d['from']
-                orientation = {
-                    'top': 'TD',
-                    'left': 'LR',
-                }[d['direction']]
-            elif d['direction'] in ['bottom', 'right']:
-                first_piece_id, second_piece_id = d['from'], d['to']
-                orientation = {
-                    'bottom': 'TD',
-                    'right': 'LR',
-                }[d['direction']]
-            else:
-                print('unknown direction:{}'.format(d['direction']))
-                exit(1)
-            k = str(first_piece_id)+orientation+str(second_piece_id)
-            if k in measure_dict:
-                val = measure_dict[k]
-            else:
-                val = 0
-                db_update.crowd_edge_count += 1
-            if d['operation'].find('+') != -1:
-                measure_dict[k] = val - 1
-                print('{}/{}:{}->{}->{}'.format(d['player_name'],d['operation'], first_piece_id, orientation, second_piece_id))
-            else:
-                measure_dict[k] = val + 2
-                print('{}/{}:{}->{}->{}'.format(d['player_name'],d['operation'], first_piece_id, orientation, second_piece_id))
+        cogs = list(mongodb.cogs_documents(start_timestamp=db_update.pre_timestamp, end_timestamp=cur_timestamp))
+        for cog in cogs:
+            edges = cog['edges_changed']
+            crowd_edge_count = len(edges)
+            for e in edges:
+                first_piece_id, second_piece_id = int(e.split('-')[0][:-1]), int(e.split('-')[1][1:])
+                if e.split('-')[0][-1] == 'L':
+                    orient = 'LR'
+                else:
+                    orient = 'TD'
+                key = str(first_piece_id)+orient+str(second_piece_id)
+                edge = edges[e]
+                measure = float(edge['wn']) - float(edge['wp'])
+                measure_dict[key] = measure
         db_update.pre_timestamp = cur_timestamp
 
 

@@ -15,17 +15,17 @@ class MongoWrapper(object):
 		if Config.authentication:
 			self.db.authenticate(Config.username, Config.password)
 
-	def nodes_documents(self):
-		yield from self.db['nodes'].find({'round_id': Config.round_id})
+	def edges_documents(self):
+		return self.db['rounds'].find_one({'round_id': Config.round_id})['edges_saved']
 
-	def actions_documents(self, start_timestamp, end_timestamp):
+	def cogs_documents(self, start_timestamp, end_timestamp):
 		""" get actions documents in-between start_time and end_time """
-		yield from self.db['actions'].find({'round_id': Config.round_id, \
-											'time_stamp':{'$gt':start_timestamp, '$lte':end_timestamp}})
+		return self.db['cogs'].find({'round_id': Config.round_id, \
+											'time':{'$gt':start_timestamp, '$lte':end_timestamp}})
 
-	def get_round_start_secs(self):
+	def get_round_start_milisecs(self):
 		formatted_date = self.db['rounds'].find_one({'round_id': Config.round_id})['start_time']
-		return cvt_to_secs(formatted_date)
+		return cvt_to_milisecs(formatted_date)
 
 	def is_finished(self):
 		if self.db.rounds.find_one({'round_id': Config.round_id})['end_time'] == '-1':
