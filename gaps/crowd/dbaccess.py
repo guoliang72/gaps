@@ -19,6 +19,9 @@ class MongoWrapper(object):
 	def edges_documents(self):
 		return self.db['rounds'].find_one({'round_id': Config.round_id})['edges_saved']
 
+	def shapes_documents(self):
+		return json.loads(self.db['rounds'].find_one({'round_id': Config.round_id})['shapeArray'])
+
 	def cogs_documents(self, timestamp):
 		""" get actions documents in-between start_time and end_time """
 		return self.db['cogs'].find({'round_id': Config.round_id, \
@@ -29,6 +32,8 @@ class MongoWrapper(object):
 		return cvt_to_milisecs(formatted_date)
 
 	def get_round_winner_time_milisecs(self):
+		if Config.cli_args.online:
+			return 0
 		if self.winner_time > 0:
 			return self.winner_time
 		formatted_date = self.db['rounds'].find_one({'round_id': Config.round_id})['winner_time']

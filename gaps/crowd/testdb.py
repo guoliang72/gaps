@@ -2,6 +2,7 @@ import numpy as np
 from pymongo import MongoClient
 import time
 import datetime
+import json
 
 round_id = 443
 mongo_ip = "162.105.89.130"
@@ -22,6 +23,9 @@ class MongoWrapper(object):
 
 	def edges_documents(self):
 		return self.db['rounds'].find_one({'round_id': round_id})['edges_saved']
+
+	def shapes_documents(self):
+		return self.db['rounds'].find_one({'round_id': round_id})['shapeArray']
 
 	def cogs_documents(self, start_timestamp, end_timestamp):
 		""" get actions documents in-between start_time and end_time """
@@ -99,3 +103,16 @@ for cog in cogs:
 		measure = float(edge['wn']) - float(edge['wp'])
 
 print(mongodb.get_round_winner_time_milisecs())
+
+measure_dict = {}
+
+shapes = json.loads(mongodb.shapes_documents())
+for first_piece_id in range(len(shapes)):
+	for second_piece_id in range(len(shapes)):
+		#print(shapes[first_piece_id], shapes[second_piece_id])
+		if(shapes[first_piece_id]['rightTab'] + shapes[second_piece_id]['leftTab'] != 0):
+			key = str(first_piece_id) + 'LR' + str(second_piece_id)
+			measure_dict[key] = 100
+		if(shapes[first_piece_id]['bottomTab'] + shapes[second_piece_id]['topTab'] != 0):
+			key = str(first_piece_id) + 'TD' + str(second_piece_id)
+			measure_dict[key] = 100

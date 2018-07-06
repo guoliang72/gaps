@@ -5,7 +5,7 @@ class ConfigClass:
 	# round_id is set by command line arguments.
 	round_id = None
 
-	population = 200
+	population = 1000
 
 	elite_percentage = 0.02
 
@@ -19,6 +19,10 @@ class ConfigClass:
 	use_pixel = True
 	use_pixel_shred = 0.2
 	 # num of created edge / (n-1)m + n(m-1)
+
+	measure_weight = False
+
+	shape_dissimilarity = 10000
 
 	# roulette_alt = False: select one individual in each round of roulette.
 	# roulette_alt = True: select two individuals(parents) in each round of roulette.
@@ -42,7 +46,7 @@ class ConfigClass:
 
 	erase_edge = 2
 
-	offline_start_percent = 0.5
+	offline_start_percent = 0.0
 
 	@property
 	def total_edges(self):
@@ -75,7 +79,7 @@ class ConfigClass:
 		return sigmoid
 	'''
 	def sigmoid(x):
-		return 1.0 / (1.0 + math.exp(-x/150.0))
+		return 1.0 / (1.0 + math.exp(-x / 150.0))
 
 	base = 1.1 
 	def exponent(x):

@@ -62,7 +62,7 @@ class GeneticAlgorithm(object):
         '''
 
         # save elites of each generation.
-        if not Config.cli_args.offline:
+        if Config.cli_args.online:
             # online
             elites_db = JsonDB(collection_name='elites', doc_name='round'+str(Config.round_id))
         else:
@@ -88,19 +88,13 @@ class GeneticAlgorithm(object):
 
         for generation in range(self._generations):
             
-            if Config.cli_args.offline:
+            if not Config.cli_args.online:
                 print_progress(generation, self._generations - 1, prefix="=== Solving puzzle offline: ", start_time=start_time)
             
 
             ## In crowd-based algorithm, we need to access database to updata fintess measure
             ## at the beginning of each generation.
             # update fitness from database.
-
-            if not Config.cli_args.offline:
-                if mongo_wrapper.is_finished():
-                    print("Round {} has finished. Exit GA.".format(Config.round_id))
-                    elites_db.save()
-                    exit(0)
 
             db_update()
             print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
@@ -132,10 +126,14 @@ class GeneticAlgorithm(object):
 
             if solution_found:
                 print("GA found a solution for round {}!".format(Config.round_id))
-                winner_time = mongo_wrapper.get_round_winner_time_milisecs() / 1000.0
-                GA_time = time.time() - start_time + \
-                    mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent / 1000.0
-                print("solved, winner time: %d, GA time: %d" % (winner_time, GA_time))
+                if Config.cli_args.online:
+                    GA_time = time.time() - (mongo_wrapper.get_round_start_milisecs() / 1000.0)
+                    print("GA time: %d" % GA_time)
+                else:
+                    winner_time = mongo_wrapper.get_round_winner_time_milisecs() / 1000.0
+                    GA_time = time.time() - start_time + \
+                        mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent / 1000.0
+                    print("solved, winner time: %d, GA time: %d" % (winner_time, GA_time))
                 if Config.multiprocess:
                     for p in processes:
                         p.terminate()

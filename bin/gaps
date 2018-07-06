@@ -35,14 +35,18 @@ def parse_arguments():
     # parser.add_argument("--generations", type=int, help="Num of generations.")
     # parser.add_argument("--population", type=int, default=POPULATION, help="Size of population.")
     parser.add_argument("--size", type=int, help="Single piece size in pixels.")
-    parser.add_argument("--verbose", action="store_true", help="Show best individual after each generation.", default=True)
+    parser.add_argument("--verbose", action="store_true", help="Show best individual after each generation.", default=False)
     parser.add_argument("--fitness", type=str, choices=['rank-based', 'sigmoid', 'exponent'], required=True)
     parser.add_argument("--rows", type=int, default=-1)
     parser.add_argument("--cols", type=int, default=-1)
+    parser.add_argument("--erase_edge", type=int, default=2)
+    parser.add_argument("--use_pixel", action="store_true", default=False)
+    parser.add_argument("--measure_weight", action="store_true", default=False)
+    parser.add_argument("--start_at", type=float, default=0.0)
     parser.add_argument("--roundid", type=int, required=True)
     parser.add_argument("--save", action="store_true", help="Save puzzle result as image.", default=True)
     parser.add_argument("--algorithm", type=str, choices=['edge', 'crowd'], default='crowd')
-    parser.add_argument("--offline", action="store_true", default=True)
+    parser.add_argument("--online", action="store_true", default=False)
     return parser.parse_args()
 
 def set_round_info(args):
@@ -62,9 +66,15 @@ def set_round_info(args):
 if __name__ == "__main__":
     args = parse_arguments()
     Config.round_id = args.roundid
+    Config.erase_edge = args.erase_edge
+    Config.use_pixel = args.use_pixel
+    Config.measure_weight = args.measure_weight
+    if not args.online:
+        Config.offline_start_percent = args.start_at
     Config.cli_args = args
-    if args.offline:
-        set_round_info(args)
+    set_round_info(args)
+    print('imagePath: %s, measure_weight: %s, use_pixel: %s, erase_edge: %d' % \
+        (args.image, str(Config.measure_weight), str(Config.use_pixel), Config.erase_edge))
     image = cv2.imread(args.image)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -100,7 +110,7 @@ if __name__ == "__main__":
     solution = algorithm.start_evolution(args.verbose)
     end = time()
 
-    if args.offline:
+    if not args.online:
         halfStartTime = mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent
         print("\n=== Done in {0:.3f} s".format(end - start + halfStartTime / 1000))
     else:

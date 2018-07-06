@@ -12,14 +12,27 @@ def static_vars(**kwargs):
         return func
     return decorate
 
+def update_shape_dissimilarity(measure_dict):
+    shapes = db_update.mongodb.shapes_documents()
+    for first_piece_id in range(len(shapes)):
+        for second_piece_id in range(len(shapes)):
+            #print(shapes[first_piece_id], shapes[second_piece_id])
+            if(shapes[first_piece_id]['rightTab'] + shapes[second_piece_id]['leftTab'] != 0):
+                key = str(first_piece_id) + 'LR' + str(second_piece_id)
+                measure_dict[key] = Config.shape_dissimilarity
+            if(shapes[first_piece_id]['bottomTab'] + shapes[second_piece_id]['topTab'] != 0):
+                key = str(first_piece_id) + 'TD' + str(second_piece_id)
+                measure_dict[key] = Config.shape_dissimilarity
+
 @static_vars(mongodb=mongo_wrapper, 
     secs_diff=time.time() * 1000 - mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent,
     crowd_edge_count=0)
 def db_update():
     """ Update dissimilarity_measure.measure_didct from mongo database. """
-    if not Config.cli_args.offline:
+    if Config.cli_args.online:
         # online
-        dissimilarity_measure.measure_dict.clear()
+        measure_dict = dissimilarity_measure.measure_dict
+        #measure_dict.clear()
         edges = db_update.mongodb.edges_documents()
         db_update.crowd_edge_count = len(edges)
         for e in edges:
@@ -30,21 +43,27 @@ def db_update():
             else:
                 orient = 'TD'
             second_piece_id = edge['y']
-            wp = edge['weight']
-            confidence = edge['confidence']
-            if confidence > 0:
-                wn = wp / confidence - wp + 0.0
+            if Config.measure_weight:
+                wp = edge['weight']
+                confidence = edge['confidence']
+                if confidence > 0:
+                    wn = wp / confidence - wp + 0.0
+                else:
+                    wn = 0.0
+                    opposers = edge['opposers']
+                    for o in opposers:
+                        wn += opposers[o]
+                measure = wn - wp
             else:
-                wn = 0.0
-                opposers = edge['opposers']
-                for o in opposers:
-                    wn += opposers[o]
-            measure = wn - wp
-            dissimilarity_measure.measure_dict[str(first_piece_id)+orientation+str(second_piece_id)] = measure
+                measure = len(edge['opposers']) - len(edge['supporters'])
+            key = str(first_piece_id)+orient+str(second_piece_id)
+            measure_dict[key] = measure
+        update_shape_dissimilarity(measure_dict)
     else:
         # offline
         timestamp = time.time() * 1000 - db_update.secs_diff
         measure_dict = dissimilarity_measure.measure_dict
+        #measure_dict.clear()
         cogs = list(db_update.mongodb.cogs_documents(timestamp=timestamp))
         if len(cogs) > 0:
             cog = cogs[-1]
@@ -59,9 +78,12 @@ def db_update():
                     orient = 'TD'
                 key = str(first_piece_id)+orient+str(second_piece_id)
                 edge = edges[e]
-                measure = float(edge['wn']) - float(edge['wp'])
+                if Config.measure_weight:
+                    measure = float(edge['wn']) - float(edge['wp'])
+                else:
+                    measure = float(edge['oLen']) - float(edge['sLen'])
                 measure_dict[key] = measure
-
+        update_shape_dissimilarity(measure_dict)
 
 
 @static_vars(measure_dict=dict())
@@ -118,7 +140,7 @@ def dissimilarity_measure(first_piece, second_piece, orientation="LR"):
             value = np.sqrt(total_difference)
 
             value /= np.sqrt(Config.cli_args.size * 3) # to make sure value < 1
-
+            dissimilarity_measure.measure_dict[k] = value
             # value = -value
             return value
         else:
