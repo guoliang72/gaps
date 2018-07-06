@@ -5,7 +5,7 @@ class ConfigClass:
 	# round_id is set by command line arguments.
 	round_id = None
 
-	population = 1000
+	population = 500
 
 	elite_percentage = 0.02
 
@@ -79,6 +79,8 @@ class ConfigClass:
 		return sigmoid
 	'''
 	def sigmoid(x):
+		if(-x > 100000):
+			return 0.000000000000000000000000000001
 		return 1.0 / (1.0 + math.exp(-x / 150.0))
 
 	base = 1.1 

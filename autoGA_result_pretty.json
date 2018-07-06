@@ -1,0 +1,20 @@
+{
+    "458": {
+        "erase_edge:2,measure_weight:True": {
+            "winner_time": 89.0,
+            "GA_time": 32.824
+        },
+        "erase_edge:3,measure_weight:True": {
+            "winner_time": 89.0,
+            "GA_time": 40.347
+        },
+        "erase_edge:2,measure_weight:False": {
+            "winner_time": 89.0,
+            "GA_time": 30.819
+        },
+        "erase_edge:3,measure_weight:False": {
+            "winner_time": 89.0,
+            "GA_time": 40.314
+        }
+    }
+}

@@ -15,12 +15,15 @@ class MongoWrapper(object):
 		if Config.authentication:
 			self.db.authenticate(Config.username, Config.password)
 		self.winner_time = 0
+		self.shapeArray = None
 
 	def edges_documents(self):
 		return self.db['rounds'].find_one({'round_id': Config.round_id})['edges_saved']
 
 	def shapes_documents(self):
-		return json.loads(self.db['rounds'].find_one({'round_id': Config.round_id})['shapeArray'])
+		if not self.shapeArray:
+			self.shapeArray = json.loads(self.db['rounds'].find_one({'round_id': Config.round_id})['shapeArray'])
+		return self.shapeArray
 
 	def cogs_documents(self, timestamp):
 		""" get actions documents in-between start_time and end_time """

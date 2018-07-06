@@ -88,7 +88,7 @@ class GeneticAlgorithm(object):
 
         for generation in range(self._generations):
             
-            if not Config.cli_args.online:
+            if not Config.cli_args.online and not Config.cli_args.hide_detail:
                 print_progress(generation, self._generations - 1, prefix="=== Solving puzzle offline: ", start_time=start_time)
             
 
@@ -97,7 +97,8 @@ class GeneticAlgorithm(object):
             # update fitness from database.
 
             db_update()
-            print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
+            if not Config.cli_args.hide_detail:
+                print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
             # calculate dissimilarity and best_match_table.
             ImageAnalysis.analyze_image(self._pieces)
             # fitness of all individuals need to be re-calculated.
@@ -128,12 +129,12 @@ class GeneticAlgorithm(object):
                 print("GA found a solution for round {}!".format(Config.round_id))
                 if Config.cli_args.online:
                     GA_time = time.time() - (mongo_wrapper.get_round_start_milisecs() / 1000.0)
-                    print("GA time: %d" % GA_time)
+                    print("GA time: %.3f" % GA_time)
                 else:
                     winner_time = mongo_wrapper.get_round_winner_time_milisecs() / 1000.0
                     GA_time = time.time() - start_time + \
                         mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent / 1000.0
-                    print("solved, winner time: %d, GA time: %d" % (winner_time, GA_time))
+                    print("solved, winner time: %.3f, GA time: %.3f" % (winner_time, GA_time))
                 if Config.multiprocess:
                     for p in processes:
                         p.terminate()
