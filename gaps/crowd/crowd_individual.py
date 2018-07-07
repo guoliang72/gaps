@@ -56,7 +56,7 @@ class CrowdIndividual(object):
             for candidate_piece in candidate_pieces:
                 if self._is_valid_piece(candidate_piece) and self.check_shape_valid(candidate_piece, position):
                     self.put_piece_to_kernel(candidate_piece, position)
-
+                    break
 
     def check_shape_valid(self, piece_id, position):
         boundaries_pieces = {

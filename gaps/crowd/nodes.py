@@ -28,34 +28,34 @@ class NodesAndHints(object):
                 self.updateNodesAndHints(first_piece_id, 'D', second_piece_id, wp, wn)
                 self.updateNodesAndHints(second_piece_id, 'T', first_piece_id, wp, wn)
         self.checkUnsureHints()
-        #print(json.dumps(self.nodes, indent=4))
+        print(json.dumps(self.nodes, indent=4))
 
 
     def initNodesAndHints(self, piece_id):
         self.nodes[piece_id] = {
             'T': {
                 'indexes': {},
-                'maxConfidence': constants['phi']
-                'wp_sum' = 0.0
-                'wn_sum' = 0.0
+                'maxConfidence': constants['phi'],
+                'wp_sum': 0.0,
+                'wn_sum': 0.0,
             },
             'R': {
                 'indexes': {},
-                'maxConfidence': constants['phi']
-                'wp_sum' = 0.0
-                'wn_sum' = 0.0
+                'maxConfidence': constants['phi'],
+                'wp_sum': 0.0,
+                'wn_sum': 0.0,
             },
             'D': {
                 'indexes': {},
-                'maxConfidence': constants['phi']
-                'wp_sum' = 0.0
-                'wn_sum' = 0.0
+                'maxConfidence': constants['phi'],
+                'wp_sum': 0.0,
+                'wn_sum': 0.0,
             },
             'L': {
                 'indexes': {},
-                'maxConfidence': constants['phi']
-                'wp_sum' = 0.0
-                'wn_sum' = 0.0
+                'maxConfidence': constants['phi'],
+                'wp_sum': 0.0,
+                'wn_sum': 0.0,
             },
         }
         self.hints[piece_id] = {
@@ -85,7 +85,7 @@ class NodesAndHints(object):
                     second_piece_id = self.hints[first_piece_id][orient]
                     unsure = False
                     for other_piece_id in self.nodes[first_piece_id][orient]['indexes']:
-                        confidence = self.nodes[first_piece_id][orient]['indexes'][other_piece_id]
+                        confidence = self.nodes[first_piece_id][orient]['indexes'][other_piece_id]['confidence']
                         maxConfidence = self.nodes[first_piece_id][orient]['maxConfidence']
                         if other_piece_id != second_piece_id and maxConfidence - confidence <= constants['epsilon']:
                             unsure = True
