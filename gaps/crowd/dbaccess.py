@@ -16,6 +16,7 @@ class MongoWrapper(object):
 			self.db.authenticate(Config.username, Config.password)
 		self.winner_time = 0
 		self.shapeArray = None
+		print('fuck')
 
 	def edges_documents(self):
 		return self.db['rounds'].find_one({'round_id': Config.round_id})['edges_saved']
