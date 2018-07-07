@@ -9,7 +9,6 @@ from gaps.crowd.individual import Individual
 SHARED_PIECE_PRIORITY = -1e100
 BUDDY_PIECE_PRIORITY = -1e99
 
-
 class Crossover(object):
 
     def __init__(self, pieces, rows, columns, shapeArray, edges):
