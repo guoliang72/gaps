@@ -1,29 +1,29 @@
-
+import json
 class Nodes(object):
 
     def __init__(self, edges, rows, columns):
-        self.edges = edges[:]
         self.rows = rows
         self.columns = columns
         self.nodes = {}
-        self.edges = {}
+        self.hints = {}
         for e in edges:
             first_piece_id, second_piece_id = int(e.split('-')[0][:-1]), int(e.split('-')[1][1:])
-            if not first_piece_id in nodes:
-                self.initNodesAndHints(nodes, first_piece_id)
-            if not second_piece_id in nodes:
-                self.initNodesAndHints(nodes, second_piece_id)
+            if not first_piece_id in self.nodes:
+                self.initNodesAndHints(first_piece_id)
+            if not second_piece_id in self.nodes:
+                self.initNodesAndHints(second_piece_id)
             edge = edges[e]
             wp = float(edge['wp'])
             wn = float(edge['wn'])
             confidence = wp / (wp + wn)
             if e.split('-')[0][-1] == 'L':
-                self.updateNodesAndHints(nodes, hints, first_piece_id, 'R', second_piece_id, confidence)
-                self.updateNodesAndHints(nodes, hints, second_piece_id, 'L', first_piece_id, confidence)
+                self.updateNodesAndHints(first_piece_id, 'R', second_piece_id, confidence)
+                self.updateNodesAndHints(second_piece_id, 'L', first_piece_id, confidence)
             else:
-                self.updateNodesAndHints(nodes, hints, first_piece_id, 'D', second_piece_id, confidence)
-                self.updateNodesAndHints(nodes, hints, second_piece_id, 'T', first_piece_id, confidence)
-        self.checkUnsureHints(nodes, hints)
+                self.updateNodesAndHints(first_piece_id, 'D', second_piece_id, confidence)
+                self.updateNodesAndHints(second_piece_id, 'T', first_piece_id, confidence)
+        self.checkUnsureHints()
+        #print(json.dumps(self.hints, indent=4))
 
 
     def initNodesAndHints(self, piece_id):
