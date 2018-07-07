@@ -20,9 +20,9 @@ for round_id in round_ids:
 	for erase_edge in erase_edges:
 		for measure_weight in measure_weights:
 			if measure_weight:
-				cmd = 'gaps --roundid %d --fitness %s --use_pixel --measure_weight --hide_detail --erase_edge %d --start_at %f' % (round_id, fitness_method, erase_edge, start_at)
+				cmd = 'bin/gaps --roundid %d --fitness %s --use_pixel --measure_weight --hide_detail --erase_edge %d --start_at %f' % (round_id, fitness_method, erase_edge, start_at)
 			else:
-				cmd = 'gaps --roundid %d --fitness %s --use_pixel --hide_detail --erase_edge %d --start_at %f' % (round_id, fitness_method, erase_edge, start_at)
+				cmd = 'bin/gaps --roundid %d --fitness %s --use_pixel --hide_detail --erase_edge %d --start_at %f' % (round_id, fitness_method, erase_edge, start_at)
 			winner_time = 0.0
 			GA_time = 0.0
 			for i in range(repeat_time):
