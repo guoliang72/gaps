@@ -1,18 +1,16 @@
-import random
-import heapq
-import bisect
+import numpy as np
 
-from gaps.crowd.nodes import Nodes
+from gaps.crowd.nodes import NodesAndHints
 from gaps.crowd.individual import Individual
 
 class CrowdIndividual(object):
 
-    def __init__(self, pieces, rows, columns, shapeArray, edges):
+    def __init__(self, rows, columns, shapeArray, edges):
         self.shapeArray = shapeArray
-        self.pieces = pieces[:]
+        self.pieces = [i for i in range(rows * columns)]
         self.rows = rows
         self.columns = columns
-        self._pieces_length = len(pieces)
+        self._pieces_length = len(self.pieces)
         nodesAndHints = NodesAndHints(edges, rows, columns)
         self.nodes = nodesAndHints.nodes
         self.hints = nodesAndHints.hints
@@ -30,7 +28,7 @@ class CrowdIndividual(object):
         self._candidate_pieces = []
 
         root_piece = self.pieces[int(random.uniform(0, self._pieces_length))]
-        self.put_piece_to_kernel(root_piece.id, (0, 0))
+        self.put_piece_to_kernel(root_piece, (0, 0))
 
         # priority pool for fitness-based random selection
         # needed??
@@ -60,10 +58,10 @@ class CrowdIndividual(object):
 
     def check_shape_valid(self, piece_id, position):
         boundaries_pieces = {
-            'T': _taken_positions.get((position[0] - 1, position[1]), -1)
-            'R': _taken_positions.get((position[0], position[1] + 1), -1)
-            'D': _taken_positions.get((position[0] + 1, position[1]), -1)
-            'L': _taken_positions.get((position[0], position[1] - 1), -1)
+            'T': _taken_positions.get((position[0] - 1, position[1]), -1),
+            'R': _taken_positions.get((position[0], position[1] + 1), -1),
+            'D': _taken_positions.get((position[0] + 1, position[1]), -1),
+            'L': _taken_positions.get((position[0], position[1] - 1), -1),
         }
         for orientation in ['T', 'R', 'D', 'L']:
             oppose_piece = boundaries_pieces[orientation]
