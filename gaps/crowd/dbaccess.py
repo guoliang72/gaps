@@ -28,10 +28,14 @@ class MongoWrapper(object):
 			self.shapeArray = json.loads(self.db['rounds'].find_one({'round_id': Config.round_id})['shapeArray'])
 		return self.shapeArray
 
+	def cog_edges_documents(self, timestamp):
+		cogs = list(self.db['cogs'].find({'round_id': Config.round_id, 'time':{'$gt':0, '$lte':timestamp}}))
+		if len(cogs) > 0:
+			return cogs[-1]['edges_changed']
+		return None
+
 	def cogs_documents(self, timestamp):
-		""" get actions documents in-between start_time and end_time """
-		return self.db['cogs'].find({'round_id': Config.round_id, \
-											'time':{'$gt':0, '$lte':timestamp}})
+		return self.db['cogs'].find({'round_id': Config.round_id, 'time':{'$gt':0, '$lte':timestamp}})
 
 	def get_round_start_milisecs(self):
 		formatted_date = self.db['rounds'].find_one({'round_id': Config.round_id})['start_time']

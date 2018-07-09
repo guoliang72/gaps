@@ -8,6 +8,7 @@ from gaps.selection import roulette_selection
 from gaps.progress_bar import print_progress
 from gaps.crowd.crossover import Crossover
 from gaps.crowd.individual import Individual
+from gaps.crowd.crowd_individual import CrowdIndividual
 from gaps.crowd.image_analysis import ImageAnalysis
 from gaps.crowd.fitness import db_update
 from gaps.crowd.dbaccess import JsonDB, mongo_wrapper
@@ -28,6 +29,12 @@ def worker(data_q, res_q):
         res_q.put(children, block=True)
     # return children, has_solution, solution
 
+def refreshTimeStamp(start_time):
+    Config.timestamp = (time.time() - start_time) * 1000
+    if not Config.cli_args.online:
+        Config.timestamp += mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent * 1.0
+
+
 # Don't create two instantces for this class
 class GeneticAlgorithm(object):
 
@@ -39,6 +46,8 @@ class GeneticAlgorithm(object):
         self._generations = generations
         self._elite_size = Config.elite_size
         pieces, rows, columns = image_helpers.flatten_image(image, piece_size, indexed=True, r=r, c=c)
+        self.rows = rows
+        self.columns = columns
         self._population = [Individual(pieces, rows, columns) for _ in range(population_size)]
         self._pieces = pieces
 
@@ -86,11 +95,13 @@ class GeneticAlgorithm(object):
                 p.start()
                 processes.append(p)
 
+        old_crowd_edge_count = 1
         for generation in range(self._generations):
             
             if not Config.cli_args.online and not Config.cli_args.hide_detail:
                 print_progress(generation, self._generations - 1, prefix="=== Solving puzzle offline: ", start_time=start_time)
             
+            refreshTimeStamp(start_time)
 
             ## In crowd-based algorithm, we need to access database to updata fintess measure
             ## at the beginning of each generation.
@@ -99,6 +110,14 @@ class GeneticAlgorithm(object):
             db_update()
             if not Config.cli_args.hide_detail:
                 print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
+            '''
+            if db_update.crowd_edge_count * 1.0 / old_crowd_edge_count > 1.1:
+                crowdIndividual = CrowdIndividual(self._pieces, self.rows, self.columns)
+                crowd_population = crowdIndividual.getIndividuals()
+                self._population.extend(crowd_population)
+                old_crowd_edge_count = db_update.crowd_edge_count
+                print("generate individuals according to edges")
+            '''
             # calculate dissimilarity and best_match_table.
             ImageAnalysis.analyze_image(self._pieces)
             # fitness of all individuals need to be re-calculated.
@@ -113,6 +132,8 @@ class GeneticAlgorithm(object):
             # Elitism
             # elite = self._get_elite_individuals(elites=self._elite_size)
             elite = self._population[-self._elite_size:]
+            for e in elite:
+                print([piece.id for piece in e.pieces])
             new_population.extend(elite)
             
             if Config.fitness_func_name == 'rank-based':

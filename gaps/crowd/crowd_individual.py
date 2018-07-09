@@ -1,16 +1,24 @@
 import numpy as np
 
+from gaps.config import Config
+from gaps.crowd.dbaccess import mongo_wrapper
 from gaps.crowd.nodes import NodesAndHints
-#from gaps.crowd.individual import Individual
+from gaps.crowd.individual import Individual
+from gaps.crowd.fitness import db_update
 
 class CrowdIndividual(object):
 
-    def __init__(self, rows, columns, shapeArray, edges):
-        self.shapeArray = shapeArray
+    def __init__(self, real_pieces, rows, columns):
+        self.shapeArray = mongo_wrapper.shapes_documents()
+        self.real_pieces = real_pieces[:]
         self.pieces = [i for i in range(rows * columns)]
         self.rows = rows
         self.columns = columns
         self._pieces_length = len(self.pieces)
+
+        self.population = 0
+
+        edges = mongo_wrapper.cog_edges_documents(Config.timestamp)
         nodesAndHints = NodesAndHints(edges, rows, columns)
         self.nodes = nodesAndHints.nodes
         self.hints = nodesAndHints.hints
@@ -21,91 +29,78 @@ class CrowdIndividual(object):
         self._min_column = 0
         self._max_column = 0
 
-        self._kernel = {}
-        self._taken_positions = {}
+        self.shape_available_pieces = {}
+        self.probability_maps = {}
 
-        # Priority queue
-        self._candidate_pieces = []
+        self.compute_shape_available_pieces()
+        self.compute_probability_maps()
+        self.individuals = {}
 
-    
-        self.used_pieces = set()
-        self.puzzle = [-1 for _ in range(rows * columns)]
-        self.results = []
-        for root_piece in range(self.rows * self.columns):
-            self.put_piece(root_piece, 0)
+        while True:
+            self._kernel = {}
+            self._taken_positions = {}
+            root_piece = self.pieces[int(np.random.uniform(0, self._pieces_length))]
+            self.search_count = 0
+            if self.put_piece_to_kernel(root_piece, (0, 0)):
+                self.population += 1
+                if self.population >= Config.crowd_population:
+                    break
 
+        # priority pool for fitness-based random selection
+        # needed??
 
-    def put_piece(self, piece_id, position):
-        self.puzzle[position] = piece_id
-        self.used_pieces.add(piece_id)
-        if position == len(self.puzzle) - 1 and len(self.used_pieces) == len(self.puzzle):
-            print(self.puzzle)
-            self.results.append(self.puzzle.copy())
+    def saveIndividual(self):
+        pieces = [None] * self._pieces_length
 
-        if position >= self.columns and self.puzzle[position - self.columns] < 0:
-            probability_map = self.find_candidate_pieces_probability_map(piece_id, 'T')
-            if probability_map:
-                size = 3 if len(probability_map) > 3 else len(probability_map)
-                top_pieces = np.random.choice(list(probability_map.keys()), size=size, replace=False, p=list(probability_map.values()))
-                for top_piece in top_pieces:
-                    if self.check_shape_valid(top_piece, position - self.columns) and not top_piece in self.used_pieces:
-                        self.put_piece(top_piece, position - self.columns)
+        for piece, (row, column) in self._kernel.items():
+            index = (row - self._min_row) * self.columns + (column - self._min_column)
+            pieces[index] = piece
 
+        self.individuals[hash(str(pieces))] = pieces
 
-        if (position % self.columns) < (self.columns - 1) and self.puzzle[position + 1] < 0:
-            probability_map = self.find_candidate_pieces_probability_map(piece_id, 'R')
-            if probability_map:
-                size = 3 if len(probability_map) > 3 else len(probability_map)
-                right_pieces = np.random.choice(list(probability_map.keys()), size=size, replace=False, p=list(probability_map.values()))
-                for right_piece in right_pieces:
-                    if self.check_shape_valid(right_piece, position + 1) and not right_piece in self.used_pieces:
-                        self.put_piece(right_piece, position + 1)
-
-        if position < (self.columns * self.rows - self.columns) and self.puzzle[position + self.columns] < 0:
-            probability_map = self.find_candidate_pieces_probability_map(piece_id, 'D')
-            if probability_map:
-                size = 3 if len(probability_map) > 3 else len(probability_map)
-                bottom_pieces = np.random.choice(list(probability_map.keys()), size=size, replace=False, p=list(probability_map.values()))
-                for bottom_piece in bottom_pieces:
-                    if self.check_shape_valid(bottom_piece, position + self.columns) and not bottom_piece in self.used_pieces:
-                        self.put_piece(bottom_piece, position + self.columns)
-
-        if (position % self.columns) > 0 and self.puzzle[position - 1] < 0:
-            probability_map = self.find_candidate_pieces_probability_map(piece_id, 'L')
-            if probability_map:
-                size = 3 if len(probability_map) > 3 else len(probability_map)
-                left_pieces = np.random.choice(list(probability_map.keys()), size=size, replace=False, p=list(probability_map.values()))
-                for left_piece in left_pieces:
-                    if self.check_shape_valid(left_piece, position - 1) and not left_piece in self.used_pieces:
-                        self.put_piece(left_piece, position - 1)
-
-
-        self.used_pieces.remove(piece_id)
-        self.puzzle[position] = -1
-
+    def getIndividuals(self):
+        individuals = []
+        for individual in self.individuals.values():
+            pieces = [self.real_pieces[individual[i]] for i in range(self._pieces_length)]
+            individuals.append(Individual(pieces, self.rows, self.columns, shuffle=False))
+        return individuals
 
     def put_piece_to_kernel(self, piece_id, position):
+        if self.search_count > Config.search_depth:
+            return False
+
         self._kernel[piece_id] = position
         self._taken_positions[position] = piece_id
 
+        if len(self._kernel) == self.rows * self.columns:
+            self.saveIndividual()
+            return True
+
+        self.search_count += 1
         available_boundaries = self._available_boundaries(position)
-        for orientation, position in available_boundaries:
-            probability_map = self.find_candidate_pieces_probability_map(piece_id, orientation, position)
-            print('probability_map', probability_map, sum(list(probability_map.values())))
+        for orientation, near_position in available_boundaries:
+            probability_map = self.find_candidate_pieces_probability_map(piece_id, orientation)
+            if not probability_map:
+                continue
             # shape: jagged
+            #candidate_pieces = np.random.choice(list(probability_map.keys()), size=len(probability_map), replace=False, p=list(probability_map.values()))
             candidate_pieces = [i[0] for i in sorted(probability_map.items(), key=lambda a:a[1], reverse=True)]
-            print(candidate_pieces)
             for candidate_piece in candidate_pieces:
-                if self._is_valid_piece(candidate_piece) and self.check_shape_valid(candidate_piece, position):
-                    self.put_piece_to_kernel(candidate_piece, position)
+                if candidate_piece not in self._kernel:
+                    if self.put_piece_to_kernel(candidate_piece, near_position):
+                        return True
                     break
+
+        self._taken_positions.pop(position)
+        self._kernel.pop(piece_id)
+        return False
 
     def check_shape_valid(self, piece_id, position):
         boundaries_pieces = {
-            'T': self.puzzle[position - self.columns] if position >= self.columns else -1,
-            'R': self.puzzle[position + 1] if (position % self.columns) < (self.columns - 1) else -1,
-            'D': self.puzzle[position + self.columns] if position < (self.columns * self.rows - self.columns) else -1,
-            'L': self.puzzle[position - 1] if (position % self.columns) > 0 else -1,
+            'T': self._taken_positions.get((position[0] - 1, position[1]), -1),
+            'R': self._taken_positions.get((position[0], position[1] + 1), -1),
+            'D': self._taken_positions.get((position[0] + 1, position[1]), -1),
+            'L': self._taken_positions.get((position[0], position[1] - 1), -1),
         }
         for orientation in ['T', 'R', 'D', 'L']:
             oppose_piece = boundaries_pieces[orientation]
@@ -116,89 +111,76 @@ class CrowdIndividual(object):
                     return False
         return True
 
-    def find_shape_available_pieces(self, piece_id, orientation):
-        mine_shape_orient = get_shape_orientation(orientation)
-        oppose_shape_orient =  get_shape_orientation(complementary_orientation(orientation))
-        available_pieces = []
-        for i in range(len(self.shapeArray)):
-            if i == piece_id:
-                continue
-            if self.shapeArray[piece_id][mine_shape_orient] + self.shapeArray[i][oppose_shape_orient] == 0:
-                available_pieces.append(i)
-        np.random.shuffle(available_pieces)
-        return available_pieces
+    def compute_shape_available_pieces(self):
+        for piece_id in range(self._pieces_length):
+            for orientation in ['T', 'R', 'D', 'L']:
+                key = str(piece_id) + orientation
 
+                mine_shape_orient = get_shape_orientation(orientation)
+                oppose_shape_orient =  get_shape_orientation(complementary_orientation(orientation))
+                available_pieces = []
+                for i in range(len(self.shapeArray)):
+                    if i == piece_id:
+                        continue
+                    if self.shapeArray[piece_id][mine_shape_orient] + self.shapeArray[i][oppose_shape_orient] == 0:
+                        available_pieces.append(i)
+                np.random.shuffle(available_pieces)
+                self.shape_available_pieces[key] = available_pieces
+
+    def find_shape_available_pieces(self, piece_id, orientation):
+        key = str(piece_id) + orientation
+        return self.shape_available_pieces[key]
+
+    def compute_probability_maps(self):
+        for piece_id in range(self._pieces_length):
+            for orientation in ['T', 'R', 'D', 'L']:
+                key = str(piece_id) + orientation
+
+                probability_map = {}
+                choose_other_probability = 0.2
+                if piece_id in self.nodes:
+                    wp_sum = self.nodes[piece_id][orientation]['wp_sum']
+                    wn_sum = self.nodes[piece_id][orientation]['wn_sum']
+                    if wp_sum > 0:
+                        for weak_link_piece in self.nodes[piece_id][orientation]['indexes']:
+                            wp = self.nodes[piece_id][orientation]['indexes'][weak_link_piece]['wp']
+                            probability = wp * 1.0 / self.nodes[piece_id][orientation]['wp_sum']
+                            probability_map[weak_link_piece] = probability
+                        strong_link_piece = self.hints[piece_id][orientation]
+                        if strong_link_piece >= 0:
+                            for weak_link_piece in probability_map:
+                                probability = probability_map[weak_link_piece]
+                                if weak_link_piece == strong_link_piece:
+                                    probability_map[weak_link_piece] = 0.618 + (1 - 0.618) * probability
+                                else:
+                                    probability_map[weak_link_piece] = (1 - 0.618) * probability
+
+                if len(probability_map) == 0:
+                    choose_other_probability = 1.0
+                else:
+                    for link_piece in probability_map:
+                        probability = probability_map[link_piece]
+                        probability_map[link_piece] = probability * (1 - choose_other_probability)
+
+                available_pieces = self.find_shape_available_pieces(piece_id, orientation)
+                other_probability = choose_other_probability / len(available_pieces)
+                for other_piece in available_pieces:
+                    if other_piece in probability_map:
+                        probability_map[other_piece] += other_probability
+                    else:
+                        probability_map[other_piece] = other_probability
+
+                non_zero_probability_map = {}
+                for i in probability_map:
+                    if probability_map[i] > 0:
+                        non_zero_probability_map[i] = probability_map[i]
+
+                if len(non_zero_probability_map) > 0:
+                    self.probability_maps[key] = non_zero_probability_map
 
     def find_candidate_pieces_probability_map(self, piece_id, orientation):
-        probability_map = {}
-
-        wp_sum = 0.0
-        wn_sum = 0.0
-        if piece_id in self.nodes:
-            wp_sum = self.nodes[piece_id][orientation]['wp_sum']
-            wn_sum = self.nodes[piece_id][orientation]['wn_sum']
-
-            if wp_sum > 0:
-                for weak_link_piece in self.nodes[piece_id][orientation]['indexes']:
-                    wp = self.nodes[piece_id][orientation]['indexes'][weak_link_piece]['wp']
-                    probability = wp * 1.0 / wp_sum
-                    probability_map[weak_link_piece] = probability
-
-            strong_link_piece = self.hints[piece_id][orientation]
-            if strong_link_piece >= 0:
-                for weak_link_piece in probability_map:
-                    probability = probability_map.get(weak_link_piece, 0)
-                    if weak_link_piece == strong_link_piece:
-                        probability_map[weak_link_piece] = 0.618 + (1 - 0.618) * probability
-                    else:
-                        probability_map[weak_link_piece] = (1 - 0.618) * probability
-
-        #print('first', probability_map)
-
-        choose_other_probability = 1.0
-        if not wp_sum + wn_sum == 0:
-            choose_other_probability = wn_sum * 1.0 / (wp_sum + wn_sum)
-
-        #print(wp_sum, wn_sum, choose_other_probability)
-
-        if choose_other_probability > 0:
-            for link_piece in probability_map:
-                probability = probability_map[link_piece]
-                probability_map[link_piece] = probability * (1 - choose_other_probability)
-            available_pieces = self.find_shape_available_pieces(piece_id, orientation)
-            for other_piece in available_pieces:
-                if not other_piece in probability_map:
-                    probability_map[other_piece] = choose_other_probability / len(available_pieces)
-        
-        pop_sum = 0.0
-        max_probability = 0
-        max_probability_piece = -1
-        for link_piece in probability_map:
-            probability = probability_map[link_piece]
-            if link_piece in self.used_pieces:
-                probability_map[link_piece] = 0
-                pop_sum += probability
-            elif probability >= max_probability:
-                max_probability = probability
-                max_probability_piece = link_piece
-
-        probability_sum = 0.0
-        if pop_sum < 1:
-            for link_piece in probability_map:
-                probability = probability_map[link_piece]
-                probability *= 1.0 / (1.0 - pop_sum)
-                probability_sum += probability
-                probability_map[link_piece] = probability
-
-        if max_probability_piece >= 0:
-            probability_map[max_probability_piece] += 1.0 - probability_sum
-            return probability_map
-        else:
-            return None
-
-    def _add_priority_piece_candidate(self, piece_id, position, priority, relative_piece):
-        piece_candidate = (priority, (position, piece_id), relative_piece)
-        heapq.heappush(self._candidate_pieces, piece_candidate)
+        key = str(piece_id) + orientation
+        return self.probability_maps.get(key, None)
 
     def _available_boundaries(self, row_and_column):
         (row, column) = row_and_column
@@ -239,9 +221,6 @@ class CrowdIndividual(object):
         self._max_row = max(self._max_row, row)
         self._min_column = min(self._min_column, column)
         self._max_column = max(self._max_column, column)
-
-    def _is_valid_piece(self, piece_id):
-        return piece_id is not None and piece_id not in self._kernel
 
 def get_shape_orientation(orientation):
     return {

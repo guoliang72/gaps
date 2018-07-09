@@ -28,7 +28,7 @@ class NodesAndHints(object):
                 self.updateNodesAndHints(first_piece_id, 'D', second_piece_id, wp, wn)
                 self.updateNodesAndHints(second_piece_id, 'T', first_piece_id, wp, wn)
         self.checkUnsureHints()
-        print(json.dumps(self.nodes, indent=4))
+        #print(json.dumps(self.nodes, indent=4))
 
 
     def initNodesAndHints(self, piece_id):

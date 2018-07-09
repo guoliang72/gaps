@@ -61,13 +61,10 @@ def db_update():
         update_shape_dissimilarity(measure_dict)
     else:
         # offline
-        timestamp = time.time() * 1000 - db_update.secs_diff
         measure_dict = dissimilarity_measure.measure_dict
         #measure_dict.clear()
-        cogs = list(db_update.mongodb.cogs_documents(timestamp=timestamp))
-        if len(cogs) > 0:
-            cog = cogs[-1]
-            edges = cog['edges_changed']
+        edges = db_update.mongodb.cog_edges_documents(Config.timestamp)
+        if edges:
             db_update.crowd_edge_count = len(edges)
             # print("crowd_edge_count: %d" % crowd_edge_count)
             for e in edges:

@@ -3,9 +3,14 @@ import math
 class ConfigClass:
 
 	# round_id is set by command line arguments.
+	timestamp = None
+
 	round_id = 458
 
-	population = 500
+	search_depth = 3000
+
+	population = 200
+	crowd_population = 25
 
 	elite_percentage = 0.02
 
