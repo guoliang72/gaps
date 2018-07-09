@@ -86,7 +86,7 @@ class CrowdIndividual(object):
             #candidate_pieces = np.random.choice(list(probability_map.keys()), size=len(probability_map), replace=False, p=list(probability_map.values()))
             candidate_pieces = [i[0] for i in sorted(probability_map.items(), key=lambda a:a[1], reverse=True)]
             for candidate_piece in candidate_pieces:
-                if candidate_piece not in self._kernel:
+                if candidate_piece not in self._kernel:# and self.check_shape_valid(candidate_piece, near_position):
                     if self.put_piece_to_kernel(candidate_piece, near_position):
                         return True
                     break

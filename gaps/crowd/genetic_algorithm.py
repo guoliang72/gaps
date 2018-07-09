@@ -8,6 +8,7 @@ from gaps.selection import roulette_selection
 from gaps.progress_bar import print_progress
 from gaps.crowd.crossover import Crossover
 from gaps.crowd.individual import Individual
+from gaps.crowd.nodes import NodesAndHints
 from gaps.crowd.crowd_individual import CrowdIndividual
 from gaps.crowd.image_analysis import ImageAnalysis
 from gaps.crowd.fitness import db_update
@@ -33,6 +34,59 @@ def refreshTimeStamp(start_time):
     Config.timestamp = (time.time() - start_time) * 1000
     if not Config.cli_args.online:
         Config.timestamp += mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent * 1.0
+
+def compute_edges_match(individual, columns, edges):
+    edges_match = 0.0
+    confidence_edges_match = 0.0
+    unconfidence_edges_match = 0.0
+    correct_edges_match = 0.0
+    confidence_edges = 0.0
+    unconfidence_edges = 0.0
+    correct_edges = 0.0
+    for e in edges:
+        edge = edges[e]
+        first_piece_id, second_piece_id = int(e.split('-')[0][:-1]), int(e.split('-')[1][1:])
+        edges_matched = False
+        correct_edge = False
+        if e.split('-')[0][-1] == 'L':
+            if second_piece_id == first_piece_id + 1:
+                correct_edge = True
+                correct_edges += 1
+            if individual.edge(first_piece_id, 'R') == second_piece_id:
+                edges_matched = True
+                edges_match += 1
+                if correct_edge:
+                    correct_edges_match += 1
+        else:
+            if second_piece_id == first_piece_id + columns:
+                correct_edge = True
+                correct_edges += 1
+            if individual.edge(first_piece_id, 'D') == second_piece_id:
+                edges_matched = True
+                edges_match += 1
+                if correct_edge:
+                    correct_edges_match += 1
+        
+        wp = float(edge['wp'])
+        wn = float(edge['wn'])
+        confidence = wp * 1.0 / (wn + wp)
+        if confidence >= 0.618:
+            confidence_edges += 1
+            if edges_matched:
+                confidence_edges_match += 1
+        else:
+            unconfidence_edges += 1
+            if edges_matched:
+                unconfidence_edges_match += 1
+
+    len_edges = len(edges)
+    correct_edges = 1.0 if correct_edges == 0 else correct_edges
+    unconfidence_edges = 1.0 if unconfidence_edges == 0 else unconfidence_edges
+    confidence_edges = 1.0 if confidence_edges == 0 else confidence_edges
+    len_edges = 1.0 if len_edges == 0 else len_edges
+
+    return correct_edges_match / correct_edges, unconfidence_edges_match / unconfidence_edges, \
+        confidence_edges_match / confidence_edges, edges_match / len_edges
 
 
 # Don't create two instantces for this class
@@ -110,14 +164,22 @@ class GeneticAlgorithm(object):
             db_update()
             if not Config.cli_args.hide_detail:
                 print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
-            '''
-            if db_update.crowd_edge_count * 1.0 / old_crowd_edge_count > 1.1:
+            
+            if db_update.crowd_edge_count * 1.0 / old_crowd_edge_count > 10:
                 crowdIndividual = CrowdIndividual(self._pieces, self.rows, self.columns)
                 crowd_population = crowdIndividual.getIndividuals()
                 self._population.extend(crowd_population)
                 old_crowd_edge_count = db_update.crowd_edge_count
                 print("generate individuals according to edges")
-            '''
+                aver_edges_match = [0.0, 0.0, 0.0, 0.0]
+                for e in crowd_population:
+                    cm, ucm, cem, em = compute_edges_match(e, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp))
+                    aver_edges_match[0] += cm
+                    aver_edges_match[1] += ucm
+                    aver_edges_match[2] += cem
+                    aver_edges_match[3] += em
+                print('edges_match in crowd first generation', [m / len (crowd_population) for m in aver_edges_match])
+            
             # calculate dissimilarity and best_match_table.
             ImageAnalysis.analyze_image(self._pieces)
             # fitness of all individuals need to be re-calculated.
@@ -132,8 +194,14 @@ class GeneticAlgorithm(object):
             # Elitism
             # elite = self._get_elite_individuals(elites=self._elite_size)
             elite = self._population[-self._elite_size:]
+            aver_edges_match = [0.0, 0.0, 0.0, 0.0]
             for e in elite:
-                print([piece.id for piece in e.pieces])
+                cm, ucm, cem, em = compute_edges_match(e, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp))
+                aver_edges_match[0] += cm
+                aver_edges_match[1] += ucm
+                aver_edges_match[2] += cem
+                aver_edges_match[3] += em
+            print('edges_match in elite', [m / len (elite) for m in aver_edges_match])
             new_population.extend(elite)
             
             if Config.fitness_func_name == 'rank-based':
@@ -203,6 +271,7 @@ class GeneticAlgorithm(object):
                 new_population.extend(result)
                 for child in result:
                     if child.is_solution():
+                        print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
                         solution_found = True
                         elites_db.add(child.to_json_data(generation+1, start_time))
                         elites_db.save()

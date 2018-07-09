@@ -7,7 +7,7 @@ class ConfigClass:
 
 	round_id = 458
 
-	search_depth = 3000
+	search_depth = 30000
 
 	population = 200
 	crowd_population = 25

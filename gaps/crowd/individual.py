@@ -120,6 +120,8 @@ class Individual(object):
         if (orientation == "L") and (edge_index % self.columns > 0):
             return self.pieces[edge_index - 1].id
 
+        return None
+
     def is_solution(self):
         if self._is_solution is None:
             for i in range(len(self.pieces)-1):
@@ -130,6 +132,9 @@ class Individual(object):
                 self._is_solution = True
         
         return self._is_solution
+
+    def get_pieces_id_list(self):
+        return [piece.id for piece in self.pieces]
 
     def to_json_data(self, generation, start_time):
         ret = dict(
