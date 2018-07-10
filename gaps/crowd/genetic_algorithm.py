@@ -164,7 +164,7 @@ class GeneticAlgorithm(object):
             db_update()
             if not Config.cli_args.hide_detail:
                 print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
-            
+            '''
             if db_update.crowd_edge_count * 1.0 / old_crowd_edge_count > 10:
                 crowdIndividual = CrowdIndividual(self._pieces, self.rows, self.columns)
                 crowd_population = crowdIndividual.getIndividuals()
@@ -179,7 +179,7 @@ class GeneticAlgorithm(object):
                     aver_edges_match[2] += cem
                     aver_edges_match[3] += em
                 print('edges_match in crowd first generation', [m / len (crowd_population) for m in aver_edges_match])
-            
+            '''
             # calculate dissimilarity and best_match_table.
             ImageAnalysis.analyze_image(self._pieces)
             # fitness of all individuals need to be re-calculated.
@@ -267,9 +267,17 @@ class GeneticAlgorithm(object):
                     # new_population.append(child)
                 results = [result]
 
+            aver_edges_match = [0.0, 0.0, 0.0, 0.0]
             for result in results:
                 new_population.extend(result)
                 for child in result:
+                    '''
+                    cm, ucm, cem, em = compute_edges_match(e, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp))
+                    aver_edges_match[0] += cm
+                    aver_edges_match[1] += ucm
+                    aver_edges_match[2] += cem
+                    aver_edges_match[3] += em
+                    '''
                     if child.is_solution():
                         print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
                         solution_found = True
@@ -281,7 +289,7 @@ class GeneticAlgorithm(object):
                 #     solution_found = True
                 #     elites_db.add(result[2].to_json_data(generation+1, start_time))
                 #     elites_db.save()
-        
+            #print('edges_match in children', [m / sum([len(r) for r in results]) for m in aver_edges_match])
 
             fittest = self._best_individual()
 
