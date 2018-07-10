@@ -194,6 +194,7 @@ class GeneticAlgorithm(object):
             # Elitism
             # elite = self._get_elite_individuals(elites=self._elite_size)
             elite = self._population[-self._elite_size:]
+            '''
             aver_edges_match = [0.0, 0.0, 0.0, 0.0]
             for e in elite:
                 cm, ucm, cem, em = compute_edges_match(e, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp))
@@ -202,6 +203,7 @@ class GeneticAlgorithm(object):
                 aver_edges_match[2] += cem
                 aver_edges_match[3] += em
             print('edges_match in elite', [m / len (elite) for m in aver_edges_match])
+            '''
             new_population.extend(elite)
             
             if Config.fitness_func_name == 'rank-based':
@@ -279,7 +281,7 @@ class GeneticAlgorithm(object):
                     aver_edges_match[3] += em
                     '''
                     if child.is_solution():
-                        print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
+                        #print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
                         solution_found = True
                         elites_db.add(child.to_json_data(generation+1, start_time))
                         elites_db.save()

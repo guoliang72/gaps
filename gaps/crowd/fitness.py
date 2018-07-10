@@ -80,7 +80,7 @@ def db_update():
                 else:
                     measure = float(edge['oLen']) - float(edge['sLen'])
                 measure_dict[key] = measure
-        update_shape_dissimilarity(measure_dict)
+        #update_shape_dissimilarity(measure_dict)
 
 
 @static_vars(measure_dict=dict())

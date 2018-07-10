@@ -1,9 +1,0 @@
-GA for rounds:  [458, 452]
-round_id: 458, auto_time_cost_for_3_times: 55.604, erase_edge:2,measure_weight:True, winner_time: 89.000, GA_time: 35.803
-round_id: 458, auto_time_cost_for_3_times: 83.240, erase_edge:2,measure_weight:False, winner_time: 89.000, GA_time: 26.421
-round_id: 458, auto_time_cost_for_3_times: 151.483, erase_edge:3,measure_weight:True, winner_time: 89.000, GA_time: 39.984
-round_id: 458, auto_time_cost_for_3_times: 219.220, erase_edge:3,measure_weight:False, winner_time: 89.000, GA_time: 39.763
-Traceback (most recent call last):
-  File "autoGA.py", line 32, in <module>
-    winner_time += float(str(lines[-1]).split(' ')[3][:-1])
-IndexError: list index out of range
