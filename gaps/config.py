@@ -21,8 +21,9 @@ class ConfigClass:
 	multiprocess = False
 
 	# whether we use pixel informtion
+	only_pixel = True
 	use_pixel = True
-	use_pixel_shred = 0.2
+	use_pixel_shred = 0
 	 # num of created edge / (n-1)m + n(m-1)
 
 	measure_weight = False
@@ -49,7 +50,7 @@ class ConfigClass:
 
 	_total_edges = None
 
-	erase_edge = 2
+	erase_edge = 0
 
 	offline_start_percent = 0.0
 
