@@ -86,11 +86,28 @@ class Individual(object):
         return self._fitness
         '''
         """ Evaluate fitness value with crowd-based measure.
-        """
+        """          
         if self._fitness is None or self._objective is None:
             self._fitness = Config.fitness_func(self.objective)
 
         return self._fitness
+
+    def compute_correct_links(self):
+        correct_links = 0
+        for index in range(len(self.pieces)):
+            if index % self.columns < self.columns - 1:
+                if self.pieces[index + 1].id == self.pieces[index].id + 1:
+                    correct_links += 1
+            if index < (self.rows - 1) * self.columns:
+                if self.pieces[index + self.columns].id == self.pieces[index].id + self.columns:
+                    correct_links += 1
+        return correct_links
+
+    def compute_correct_links_percentage(self):
+        correct_links = self.compute_correct_links() * 1.0
+        total_links = (2 * self.rows * self.columns - self.rows - self.columns) * 1.0
+        return correct_links / total_links
+
 
     def piece_size(self):
         """Returns single piece size"""

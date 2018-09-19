@@ -117,6 +117,8 @@ class GeneticAlgorithm(object):
         #ImageAnalysis.analyze_image(self._pieces)
 
         start_time = time.time()
+        old_correct_links_percentage = 0.0
+        correct_links_percentage = 0.0
 
         fittest = None
         best_fitness_score = float("-inf")
@@ -280,7 +282,14 @@ class GeneticAlgorithm(object):
                     aver_edges_match[2] += cem
                     aver_edges_match[3] += em
                     '''
+
+                    correct_links_percentage = child.compute_correct_links_percentage()
+                    if correct_links_percentage > old_correct_links_percentage:
+                        print("time: %.6fs, correct_links_percentage: %.6f" % (time.time() - start_time, 100 * correct_links_percentage))
+                        old_correct_links_percentage = correct_links_percentage
+                    
                     if child.is_solution():
+                        fittest = child
                         #print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
                         solution_found = True
                         elites_db.add(child.to_json_data(generation+1, start_time))
@@ -293,7 +302,10 @@ class GeneticAlgorithm(object):
                 #     elites_db.save()
             #print('edges_match in children', [m / sum([len(r) for r in results]) for m in aver_edges_match])
 
-            fittest = self._best_individual()
+            if not solution_found:
+                fittest = self._best_individual()
+                if fittest.fitness > best_fitness_score:
+                    best_fitness_score = fittest.fitness
 
             '''
             if fittest.fitness <= best_fitness_score:
@@ -306,8 +318,7 @@ class GeneticAlgorithm(object):
                 print("=== There was no improvement for {} generations".format(self.TERMINATION_THRESHOLD))
                 return fittest
             '''
-            if fittest.fitness > best_fitness_score:
-                best_fitness_score = fittest.fitness
+            
 
             self._population = new_population
             
@@ -317,6 +328,7 @@ class GeneticAlgorithm(object):
 
         elites_db.save()    
         return fittest
+
     '''
     def _get_elite_individuals(self, elites):
         """Returns first 'elite_count' fittest individuals from population"""
