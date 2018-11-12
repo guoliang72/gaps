@@ -26,7 +26,7 @@ def update_shape_dissimilarity(measure_dict):
 
 @static_vars(mongodb=mongo_wrapper, 
     secs_diff=time.time() * 1000 - mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent,
-    crowd_edge_count=0, only_pixel_update=False)
+    crowd_edge_count=0, only_pixel_update=False, crowd_correct_edge=0, cog_index = 0, edges_confidence={})
 def db_update():
     """ Update dissimilarity_measure.measure_didct from mongo database. """
     if Config.only_pixel:
@@ -41,16 +41,17 @@ def db_update():
             # online
             measure_dict = dissimilarity_measure.measure_dict
             #measure_dict.clear()
-            edges = db_update.mongodb.edges_documents()
+            edges, db_update.cog_index = db_update.mongodb.edges_documents()
             db_update.crowd_edge_count = len(edges)
-            for e in edges:
-                edge = edges[e]
+            db_update.crowd_correct_edge = 0
+            for e, edge in edges.items():
                 first_piece_id = edge['x']
                 if edge['tag'] == 'L-R':
                     orient = 'LR'
                 else:
                     orient = 'TD'
                 second_piece_id = edge['y']
+                db_update.edges_confidence[e] = float(edge['confidence'])
                 if Config.measure_weight:
                     wp = edge['weight']
                     confidence = edge['confidence']
@@ -61,33 +62,42 @@ def db_update():
                         opposers = edge['opposers']
                         for o in opposers:
                             wn += opposers[o]
-                    measure = wn - wp
+                    measure = wn * len(edge['opposers']) - wp * len(edge['supporters'])
                 else:
                     measure = len(edge['opposers']) - len(edge['supporters'])
                 key = str(first_piece_id)+orient+str(second_piece_id)
                 measure_dict[key] = measure
+                if orient == 'LR' and first_piece_id + 1 == second_piece_id and second_piece_id % Config.cli_args.rows != 0:
+                    db_update.crowd_correct_edge += 1
+                if orient == 'TD' and first_piece_id + Config.cli_args.rows == second_piece_id:
+                    db_update.crowd_correct_edge += 1
             update_shape_dissimilarity(measure_dict)
         else:
             # offline
             measure_dict = dissimilarity_measure.measure_dict
             #measure_dict.clear()
-            edges = db_update.mongodb.cog_edges_documents(Config.timestamp)
+            edges, db_update.cog_index = db_update.mongodb.cog_edges_documents(Config.timestamp)
             if edges:
                 db_update.crowd_edge_count = len(edges)
+                db_update.crowd_correct_edge = 0
                 # print("crowd_edge_count: %d" % crowd_edge_count)
-                for e in edges:
+                for e, edge in edges.items():
                     first_piece_id, second_piece_id = int(e.split('-')[0][:-1]), int(e.split('-')[1][1:])
                     if e.split('-')[0][-1] == 'L':
                         orient = 'LR'
                     else:
                         orient = 'TD'
                     key = str(first_piece_id)+orient+str(second_piece_id)
-                    edge = edges[e]
+                    db_update.edges_confidence[e] = float(edge['wp'])/(float(edge['wn']) + float(edge['wp']))
                     if Config.measure_weight:
-                        measure = float(edge['wn']) - float(edge['wp'])
+                        measure = float(edge['wn']) * float(edge['oLen']) - float(edge['wp']) * float(edge['sLen'])
                     else:
                         measure = float(edge['oLen']) - float(edge['sLen'])
                     measure_dict[key] = measure
+                    if orient == 'LR' and first_piece_id + 1 == second_piece_id and second_piece_id % Config.cli_args.rows != 0:
+                        db_update.crowd_correct_edge += 1
+                    if orient == 'TD' and first_piece_id + Config.cli_args.rows == second_piece_id:
+                        db_update.crowd_correct_edge += 1
             update_shape_dissimilarity(measure_dict)
 
 

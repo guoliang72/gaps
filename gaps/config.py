@@ -21,7 +21,7 @@ class ConfigClass:
 	multiprocess = False
 
 	# whether we use pixel informtion
-	only_pixel = True
+	only_pixel = False
 	use_pixel = True
 	use_pixel_shred = 0
 	 # num of created edge / (n-1)m + n(m-1)
@@ -34,13 +34,13 @@ class ConfigClass:
 	# roulette_alt = True: select two individuals(parents) in each round of roulette.
 	roulette_alt = True
 
-	mongodb_ip = "162.105.89.130"
+	mongodb_ip = "162.105.89.243"
 	mongodb_port = 27017
 
 	# mongodb authentication.
-	authentication = False
-	# username = "username" # change it to your username.
-	# password = "password" # change it to your password.
+	authentication = True
+	username = "symbol" # change it to your username.
+	password = "Saw@PKU_1726" # change it to your password.
 
 	# command line arguments. This is set by ./bin/gaps.
 	cli_args = None
@@ -50,7 +50,7 @@ class ConfigClass:
 
 	_total_edges = None
 
-	erase_edge = 0
+	erase_edge = 2
 
 	offline_start_percent = 0.0
 

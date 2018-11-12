@@ -104,6 +104,7 @@ class GeneticAlgorithm(object):
         self.columns = columns
         self._population = [Individual(pieces, rows, columns) for _ in range(population_size)]
         self._pieces = pieces
+        self.common_edges = set()
 
     def start_evolution(self, verbose):
         '''
@@ -162,8 +163,9 @@ class GeneticAlgorithm(object):
             ## In crowd-based algorithm, we need to access database to updata fintess measure
             ## at the beginning of each generation.
             # update fitness from database.
-
+            
             db_update()
+            #print(ImageAnalysis.dissimilarity_measures)
             if not Config.cli_args.hide_detail:
                 print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
             '''
@@ -196,6 +198,7 @@ class GeneticAlgorithm(object):
             # Elitism
             # elite = self._get_elite_individuals(elites=self._elite_size)
             elite = self._population[-self._elite_size:]
+            self._get_common_edges(elite)
             '''
             aver_edges_match = [0.0, 0.0, 0.0, 0.0]
             for e in elite:
@@ -285,7 +288,7 @@ class GeneticAlgorithm(object):
 
                     correct_links_percentage = child.compute_correct_links_percentage()
                     if correct_links_percentage > old_correct_links_percentage:
-                        print("time: %.6fs, correct_links_percentage: %.6f" % (time.time() - start_time, 100 * correct_links_percentage))
+                        #print("time: %.6fs, correct_links_percentage: %.6f" % (time.time() - start_time, 100 * correct_links_percentage))
                         old_correct_links_percentage = correct_links_percentage
                     
                     if child.is_solution():
@@ -318,16 +321,47 @@ class GeneticAlgorithm(object):
                 print("=== There was no improvement for {} generations".format(self.TERMINATION_THRESHOLD))
                 return fittest
             '''
-            
 
             self._population = new_population
-            
+        
             if verbose:
                 from gaps.plot import Plot
                 plot.show_fittest(fittest.to_image(), "Generation: {} / {}".format(generation + 1, self._generations))
 
         elites_db.save()    
         return fittest
+
+    def _get_common_edges(self, individuals):
+        edges_sets = []
+        for individual in individuals:
+            edges_set = individual.egdes_set()
+            edges_sets.append(edges_set)
+        edge_set = edges_sets[0]
+        for i in range(1, len(edges_sets)):
+            edge_set = edge_set & edges_sets[i]
+        '''
+        for individual in individuals:
+            weight_edges_set = individual.weight_egdes_set()
+            edge_set = edge_set | weight_edges_set
+        '''
+        correct_links = 0
+        self.common_edges = edge_set
+        for e in self.common_edges:
+            left, right = e.split('-')
+            x = int(left[:-1])
+            y = int(right[1:])
+            if left[-1] == 'L':
+                if x + 1 == y and y % Config.cli_args.rows != 0:
+                    correct_links += 1
+            else:
+                if x + Config.cli_args.rows == y:
+                    correct_links += 1
+        print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
+            '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
+            '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges), 
+            '\nedges set in GA:', self.common_edges)
+        return edge_set
+
 
     '''
     def _get_elite_individuals(self, elites):

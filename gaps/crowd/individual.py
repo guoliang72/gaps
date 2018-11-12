@@ -2,6 +2,7 @@ import numpy as np
 from gaps import image_helpers
 from gaps.crowd.image_analysis import ImageAnalysis
 from gaps.config import Config
+from gaps.crowd.fitness import db_update
 
 
 class Individual(object):
@@ -91,6 +92,35 @@ class Individual(object):
             self._fitness = Config.fitness_func(self.objective)
 
         return self._fitness
+
+    def egdes_set(self):
+        edges = set()
+        for index in range(len(self.pieces)):
+            if index % self.columns < self.columns - 1:
+                edge = str(self.pieces[index].id) + 'L-R' + str(self.pieces[index + 1].id)
+                edges.add(edge)
+            if index < (self.rows - 1) * self.columns:
+                edge = str(self.pieces[index].id) + 'T-B' + str(self.pieces[index + self.columns].id)
+                edges.add(edge)
+        return edges
+
+    def weight_egdes_set(self):
+        edges = set()
+        # For each two adjacent pieces in rows
+        for i in range(self.rows):
+            for j in range(self.columns - 1):
+                ids = (self[i][j].id, self[i][j + 1].id)
+                edge = str(self[i][j].id) + 'L-R' + str(self[i][j + 1].id)
+                if edge in db_update.edges_confidence and db_update.edges_confidence[edge] >= 0.618:
+                    edges.add(edge)
+        # For each two adjacent pieces in columns
+        for i in range(self.rows - 1):
+            for j in range(self.columns):
+                ids = (self[i][j].id, self[i + 1][j].id)
+                edge = str(self[i][j].id) + 'T-B' + str(self[i + 1][j].id)
+                if edge in db_update.edges_confidence and db_update.edges_confidence[edge] >= 0.618:
+                    edges.add(edge)
+        return edges
 
     def compute_correct_links(self):
         correct_links = 0

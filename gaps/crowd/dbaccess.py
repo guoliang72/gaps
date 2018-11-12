@@ -10,10 +10,10 @@ import sys
 class MongoWrapper(object):
 	def __init__(self):
 		self.client =  MongoClient(Config.mongodb_ip, Config.mongodb_port)
-		self.db = self.client.CrowdJigsaw
 		# authentication
 		if Config.authentication:
-			self.db.authenticate(Config.username, Config.password)
+			self.client.admin.authenticate(Config.username, Config.password)
+		self.db = self.client.CrowdJigsaw
 		self.winner_time = 0
 		self.shapeArray = None
 
@@ -31,7 +31,10 @@ class MongoWrapper(object):
 	def cog_edges_documents(self, timestamp):
 		cogs = list(self.db['cogs'].find({'round_id': Config.round_id, 'time':{'$gt':0, '$lte':timestamp}}))
 		if len(cogs) > 0:
-			return cogs[-1]['edges_changed']
+			if 'edges_saved' in cogs[-1]:
+				return cogs[-1]['edges_saved'], len(cogs)-1
+			else:
+				return cogs[-1]['edges_changed'], len(cogs)-1
 		return None
 
 	def cogs_documents(self, timestamp):
@@ -46,8 +49,10 @@ class MongoWrapper(object):
 			return 0
 		if self.winner_time > 0:
 			return self.winner_time
-		formatted_date = self.db['rounds'].find_one({'round_id': Config.round_id})['winner_time']
-		hour, minute, second = formatted_date.split(':')
+		cogs = self.db['rounds'].find_one({'round_id': Config.round_id})['COG']
+		if(cogs.length > 0){
+                        :q
+                }
 		self.winner_time = (int(hour) * 3600 + int(minute) * 60 + int(second)) * 1000
 		return self.winner_time
 
