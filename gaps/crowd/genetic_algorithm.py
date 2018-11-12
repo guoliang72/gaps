@@ -356,6 +356,10 @@ class GeneticAlgorithm(object):
             else:
                 if x + Config.cli_args.rows == y:
                     correct_links += 1
+        with open('result_file_47.csv', 'w+') as f:
+            line = "%d,%d,%d,%d,%d,%d\n" % (Config.timestamp, db_update.cog_index, db_update.crowd_correct_edge,
+                db_update.crowd_edge_count, correct_links)
+            f.write(line)
         print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
             '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
             '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges), 
