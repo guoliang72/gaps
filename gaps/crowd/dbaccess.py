@@ -51,8 +51,8 @@ class MongoWrapper(object):
 			return self.winner_time
 		cogs = self.db['rounds'].find_one({'round_id': Config.round_id})['COG']
 		self.winner_time = 100000
-		if cog:
-			self.winner_time = cog[-1]['time']
+		if cogs:
+			self.winner_time = cogs[-1]['time']
 		return self.winner_time
 
 	def is_finished(self):
