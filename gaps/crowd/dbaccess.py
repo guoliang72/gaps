@@ -35,7 +35,7 @@ class MongoWrapper(object):
 				return cogs[-1]['edges_saved'], len(cogs)-1
 			else:
 				return cogs[-1]['edges_changed'], len(cogs)-1
-		return None
+		return None, -1
 
 	def cogs_documents(self, timestamp):
 		return self.db['cogs'].find({'round_id': Config.round_id, 'time':{'$gt':0, '$lte':timestamp}})

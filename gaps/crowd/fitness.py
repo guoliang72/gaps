@@ -88,11 +88,15 @@ def db_update():
                     else:
                         orient = 'TD'
                     key = str(first_piece_id)+orient+str(second_piece_id)
-                    db_update.edges_confidence[e] = float(edge['wp'])/(float(edge['wn']) + float(edge['wp']))
+                    wp = float(edge['wp'])
+                    wn = float(edge['wn'])
+                    oLen = float(edge['oLen'])
+                    sLen = float(edge['sLen'])
+                    db_update.edges_confidence[e] = wp/(wn + wp) if (wn + wp) > 0 else 0
                     if Config.measure_weight:
-                        measure = float(edge['wn']) * float(edge['oLen']) - float(edge['wp']) * float(edge['sLen'])
+                        measure = wn * oLen - wp * sLen
                     else:
-                        measure = float(edge['oLen']) - float(edge['sLen'])
+                        measure = oLen - sLen
                     measure_dict[key] = measure
                     if orient == 'LR' and first_piece_id + 1 == second_piece_id and second_piece_id % Config.cli_args.rows != 0:
                         db_update.crowd_correct_edge += 1
