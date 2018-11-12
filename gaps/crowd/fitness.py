@@ -41,7 +41,7 @@ def db_update():
             # online
             measure_dict = dissimilarity_measure.measure_dict
             #measure_dict.clear()
-            edges, db_update.cog_index = db_update.mongodb.edges_documents()
+            edges, db_update.cog_index = db_update.mongodb.edges_documents(), -1
             db_update.crowd_edge_count = len(edges)
             db_update.crowd_correct_edge = 0
             for e, edge in edges.items():
