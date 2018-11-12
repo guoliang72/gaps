@@ -50,10 +50,9 @@ class MongoWrapper(object):
 		if self.winner_time > 0:
 			return self.winner_time
 		cogs = self.db['rounds'].find_one({'round_id': Config.round_id})['COG']
-		if(cogs.length > 0){
-                        :q
-                }
-		self.winner_time = (int(hour) * 3600 + int(minute) * 60 + int(second)) * 1000
+		self.winner_time = 100000
+		if cog:
+			self.winner_time = cog[-1]['time']
 		return self.winner_time
 
 	def is_finished(self):
