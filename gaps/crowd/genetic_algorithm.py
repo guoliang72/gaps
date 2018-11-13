@@ -15,6 +15,10 @@ from gaps.crowd.fitness import db_update
 from gaps.crowd.dbaccess import JsonDB, mongo_wrapper
 from gaps.config import Config
 from multiprocessing import Process, Queue
+import redis
+import json
+
+redis_cli = redis.Redis(connection_pool=Config.pool)
 
 def worker(data_q, res_q):
     while True:
@@ -293,6 +297,9 @@ class GeneticAlgorithm(object):
                     
                     if child.is_solution():
                         fittest = child
+                        redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
+                        res = redis_cli.set(redis_key, json.dumps(list(child.egdes_set())))
+                        print(res, list(child.egdes_set()))
                         #print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
                         solution_found = True
                         elites_db.add(child.to_json_data(generation+1, start_time))
@@ -336,16 +343,16 @@ class GeneticAlgorithm(object):
         for individual in individuals:
             edges_set = individual.egdes_set()
             edges_sets.append(edges_set)
-        edge_set = edges_sets[0]
+        edges_set = edges_sets[0]
         for i in range(1, len(edges_sets)):
-            edge_set = edge_set & edges_sets[i]
+            edges_set = edges_set & edges_sets[i]
         '''
         for individual in individuals:
             weight_edges_set = individual.weight_egdes_set()
-            edge_set = edge_set | weight_edges_set
+            edges_set = edges_set | weight_edges_set
         '''
         correct_links = 0
-        self.common_edges = edge_set
+        self.common_edges = edges_set
         for e in self.common_edges:
             left, right = e.split('-')
             x = int(left[:-1])
@@ -356,15 +363,21 @@ class GeneticAlgorithm(object):
             else:
                 if x + Config.cli_args.rows == y:
                     correct_links += 1
-        with open('result_file_47.csv', 'w+') as f:
+        '''
+        with open('result_file_38.csv', 'a') as f:
             line = "%d,%d,%d,%d,%d,%d\n" % (Config.timestamp, db_update.cog_index, db_update.crowd_correct_edge,
-                db_update.crowd_edge_count, correct_links)
+                db_update.crowd_edge_count, correct_links, len(self.common_edges))
             f.write(line)
+        '''
+        redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
+        redis_cli.set(redis_key, json.dumps(list(edges_set)))
+        '''
         print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
             '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
             '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges), 
             '\nedges set in GA:', self.common_edges)
-        return edge_set
+        '''
+        return edges_set
 
 
     '''

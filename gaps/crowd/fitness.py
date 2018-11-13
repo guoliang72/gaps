@@ -42,35 +42,36 @@ def db_update():
             measure_dict = dissimilarity_measure.measure_dict
             #measure_dict.clear()
             edges, db_update.cog_index = db_update.mongodb.edges_documents(), -1
-            db_update.crowd_edge_count = len(edges)
-            db_update.crowd_correct_edge = 0
-            for e, edge in edges.items():
-                first_piece_id = edge['x']
-                if edge['tag'] == 'L-R':
-                    orient = 'LR'
-                else:
-                    orient = 'TD'
-                second_piece_id = edge['y']
-                db_update.edges_confidence[e] = float(edge['confidence'])
-                if Config.measure_weight:
-                    wp = edge['weight']
-                    confidence = edge['confidence']
-                    if confidence > 0:
-                        wn = wp / confidence - wp + 0.0
+            if edges:
+                db_update.crowd_edge_count = len(edges)
+                db_update.crowd_correct_edge = 0
+                for e, edge in edges.items():
+                    first_piece_id = edge['x']
+                    if edge['tag'] == 'L-R':
+                        orient = 'LR'
                     else:
-                        wn = 0.0
-                        opposers = edge['opposers']
-                        for o in opposers:
-                            wn += opposers[o]
-                    measure = wn * len(edge['opposers']) - wp * len(edge['supporters'])
-                else:
-                    measure = len(edge['opposers']) - len(edge['supporters'])
-                key = str(first_piece_id)+orient+str(second_piece_id)
-                measure_dict[key] = measure
-                if orient == 'LR' and first_piece_id + 1 == second_piece_id and second_piece_id % Config.cli_args.rows != 0:
-                    db_update.crowd_correct_edge += 1
-                if orient == 'TD' and first_piece_id + Config.cli_args.rows == second_piece_id:
-                    db_update.crowd_correct_edge += 1
+                        orient = 'TD'
+                    second_piece_id = edge['y']
+                    db_update.edges_confidence[e] = float(edge['confidence'])
+                    if Config.measure_weight:
+                        wp = edge['weight']
+                        confidence = edge['confidence']
+                        if confidence > 0:
+                            wn = wp / confidence - wp + 0.0
+                        else:
+                            wn = 0.0
+                            opposers = edge['opposers']
+                            for o in opposers:
+                                wn += opposers[o]
+                        measure = wn * len(edge['opposers']) - wp * len(edge['supporters'])
+                    else:
+                        measure = len(edge['opposers']) - len(edge['supporters'])
+                    key = str(first_piece_id)+orient+str(second_piece_id)
+                    measure_dict[key] = measure
+                    if orient == 'LR' and first_piece_id + 1 == second_piece_id and second_piece_id % Config.cli_args.rows != 0:
+                        db_update.crowd_correct_edge += 1
+                    if orient == 'TD' and first_piece_id + Config.cli_args.rows == second_piece_id:
+                        db_update.crowd_correct_edge += 1
             update_shape_dissimilarity(measure_dict)
         else:
             # offline

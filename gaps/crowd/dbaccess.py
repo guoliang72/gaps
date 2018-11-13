@@ -21,7 +21,10 @@ class MongoWrapper(object):
 		return self.db['rounds'].find_one({'round_id': Config.round_id})
 
 	def edges_documents(self):
-		return self.db['rounds'].find_one({'round_id': Config.round_id})['edges_saved']
+		r = self.db['rounds'].find_one({'round_id': Config.round_id})
+		if 'edges_saved' in r:
+			return r['edges_saved']
+		return None
 
 	def shapes_documents(self):
 		if not self.shapeArray:
@@ -33,7 +36,7 @@ class MongoWrapper(object):
 		if len(cogs) > 0:
 			if 'edges_saved' in cogs[-1]:
 				return cogs[-1]['edges_saved'], len(cogs)-1
-			else:
+			elif 'edges_changed' in cogs[-1]:
 				return cogs[-1]['edges_changed'], len(cogs)-1
 		return None, -1
 
@@ -49,8 +52,11 @@ class MongoWrapper(object):
 			return 0
 		if self.winner_time > 0:
 			return self.winner_time
-		cogs = self.db['rounds'].find_one({'round_id': Config.round_id})['COG']
 		self.winner_time = 100000
+		r = self.db['rounds'].find_one({'round_id': Config.round_id})
+		if 'COG ' not in r:
+			return self.winner_time
+		cogs = r['COG']
 		if cogs:
 			self.winner_time = cogs[-1]['time']
 		return self.winner_time

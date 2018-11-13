@@ -18,7 +18,11 @@ from gaps.size_detector import SizeDetector
 # from gaps.plot import Plot
 from gaps.config import Config
 from gaps.crowd.dbaccess import mongo_wrapper
+import redis
+import json
 
+Config.pool = redis.ConnectionPool(host=Config.redis_ip,port=Config.redis_port,decode_responses=True)
+redis_cli = redis.Redis(connection_pool=Config.pool)
 
 '''
 def show_image(img, title):
@@ -51,10 +55,17 @@ def parse_arguments():
     return parser.parse_args()
 
 def set_round_info(args):
-    round_info = mongo_wrapper.db['rounds'].find_one({'round_id': args.roundid})
-    
+    round_info = redis_cli.get('round:' + str(args.roundid))
+    if not round_info:
+        round_info = mongo_wrapper.db['rounds'].find_one({'round_id': args.roundid})
+        #print('get round from mongo')
+    else:
+        round_info = json.loads(round_info)
+        #print('get round from redis')
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+    #print(base_dir)
     image_path = os.path.join(base_dir, 'CrowdJigsaw/public/'+round_info['image'])
+    #print(image_path)
     args.image = image_path
 
     args.size = round_info['tileWidth']
