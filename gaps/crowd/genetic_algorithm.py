@@ -202,7 +202,6 @@ class GeneticAlgorithm(object):
             # Elitism
             # elite = self._get_elite_individuals(elites=self._elite_size)
             elite = self._population[-self._elite_size:]
-            self._get_common_edges(elite)
             '''
             aver_edges_match = [0.0, 0.0, 0.0, 0.0]
             for e in elite:
@@ -239,6 +238,7 @@ class GeneticAlgorithm(object):
                     for p in processes:
                         p.terminate()
                 exit(0)
+            self._get_common_edges(elite)
 
             selected_parents = roulette_selection(self._population, elites=self._elite_size)
 
