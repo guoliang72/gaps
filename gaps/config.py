@@ -9,10 +9,10 @@ class ConfigClass:
 
 	search_depth = 30000
 
-	population = 400
+	population = 200
 	crowd_population = 25
 
-	elite_percentage = 0.01
+	elite_percentage = 0.02
 
 	elite_size = int(population * elite_percentage)
 
@@ -34,14 +34,12 @@ class ConfigClass:
 	# roulette_alt = True: select two individuals(parents) in each round of roulette.
 	roulette_alt = True
 
-	mongodb_ip = "localhost"
+	data_server = "localhost"
 	mongodb_port = 27017
-
-	redis_ip = "localhost"
 	redis_port = 6379
 
 	# mongodb authentication.
-	authentication = False
+	authentication = True
 	username = "symbol" # change it to your username.
 	password = "Saw@PKU_1726" # change it to your password.
 

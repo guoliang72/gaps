@@ -298,8 +298,8 @@ class GeneticAlgorithm(object):
                     if child.is_solution():
                         fittest = child
                         redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
-                        res = redis_cli.set(redis_key, json.dumps(list(child.egdes_set())))
-                        print(res, list(child.egdes_set()))
+                        res = redis_cli.set(redis_key, json.dumps(list(child.edges_set())))
+                        print(res, list(child.edges_set()))
                         #print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
                         solution_found = True
                         elites_db.add(child.to_json_data(generation+1, start_time))
@@ -338,21 +338,50 @@ class GeneticAlgorithm(object):
         elites_db.save()    
         return fittest
 
+    def _remove_unconfident_edges(self, edges_set):
+        old_size = len(edges_set)
+        for e in list(edges_set):
+            if e in db_update.edges_confidence and db_update.edges_confidence[e] < 0.618:
+                edges_set.remove(e)
+        new_size = len(edges_set)
+        if old_size != new_size:
+            print('remove %d edges' % (old_size - new_size))
+
+    def _merge_common_edges(self, old_edges_set, new_edges_set):
+        links = {
+            'L-R': {},
+            'T-B': {}
+        }
+        for edges_set in [old_edges_set, new_edges_set]:
+            for e in edges_set:
+                left, right = e.split('-')
+                x, tag, y = left[:-1], 'L-R' if left[-1] == 'L' else 'T-B', right[1:]
+                links[tag][x] = y
+        merged_set = set()
+        for orient in links:
+            for x, y in links[orient].items():
+                merged_set.add(x + orient + y)
+        return merged_set
+
     def _get_common_edges(self, individuals):
-        edges_sets = []
+        confident_edges_sets, edges_sets = [], []
         for individual in individuals:
-            edges_set = individual.egdes_set()
+            edges_set = individual.edges_set()
+            confident_edges_set = individual.confident_edges_set()
             edges_sets.append(edges_set)
+            confident_edges_sets.append(confident_edges_set)
+
+        confident_edges_set = confident_edges_sets[0]
+        for i in range(1, len(confident_edges_sets)):
+            confident_edges_set = confident_edges_set | confident_edges_sets[i]
+
         edges_set = edges_sets[0]
         for i in range(1, len(edges_sets)):
             edges_set = edges_set & edges_sets[i]
-        '''
-        for individual in individuals:
-            weight_edges_set = individual.weight_egdes_set()
-            edges_set = edges_set | weight_edges_set
-        '''
+
         correct_links = 0
-        self.common_edges = edges_set
+        #self._remove_unconfident_edges(self.common_edges)
+        self.common_edges = self._merge_common_edges(edges_set, confident_edges_set)
         for e in self.common_edges:
             left, right = e.split('-')
             x = int(left[:-1])
@@ -363,20 +392,20 @@ class GeneticAlgorithm(object):
             else:
                 if x + Config.cli_args.rows == y:
                     correct_links += 1
-        '''
-        with open('result_file_38.csv', 'a') as f:
+        
+        with open('result_file_%d.csv' % Config.round_id , 'a') as f:
             line = "%d,%d,%d,%d,%d,%d\n" % (Config.timestamp, db_update.cog_index, db_update.crowd_correct_edge,
                 db_update.crowd_edge_count, correct_links, len(self.common_edges))
             f.write(line)
-        '''
+        
         redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
         redis_cli.set(redis_key, json.dumps(list(edges_set)))
-        '''
+        
         print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
             '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
             '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges), 
             '\nedges set in GA:', self.common_edges)
-        '''
+        
         return edges_set
 
 

@@ -93,7 +93,7 @@ class Individual(object):
 
         return self._fitness
 
-    def egdes_set(self):
+    def edges_set(self):
         edges = set()
         for index in range(len(self.pieces)):
             if index % self.columns < self.columns - 1:
@@ -104,7 +104,7 @@ class Individual(object):
                 edges.add(edge)
         return edges
 
-    def weight_egdes_set(self):
+    def confident_edges_set(self):
         edges = set()
         # For each two adjacent pieces in rows
         for i in range(self.rows):

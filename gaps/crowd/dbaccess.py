@@ -9,7 +9,7 @@ import sys
 
 class MongoWrapper(object):
 	def __init__(self):
-		self.client =  MongoClient(Config.mongodb_ip, Config.mongodb_port)
+		self.client =  MongoClient(Config.data_server, Config.mongodb_port)
 		# authentication
 		if Config.authentication:
 			self.client.admin.authenticate(Config.username, Config.password)
@@ -53,11 +53,8 @@ class MongoWrapper(object):
 		if self.winner_time > 0:
 			return self.winner_time
 		self.winner_time = 100000
-		r = self.db['rounds'].find_one({'round_id': Config.round_id})
-		if 'COG ' not in r:
-			return self.winner_time
-		cogs = r['COG']
-		if cogs:
+		cogs = list(self.db['cogs'].find({'round_id': Config.round_id}))
+		if len(cogs) > 0:
 			self.winner_time = cogs[-1]['time']
 		return self.winner_time
 

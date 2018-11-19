@@ -63,7 +63,7 @@ def db_update():
                             opposers = edge['opposers']
                             for o in opposers:
                                 wn += opposers[o]
-                        measure = wn * len(edge['opposers']) - wp * len(edge['supporters'])
+                        measure = wn - wp
                     else:
                         measure = len(edge['opposers']) - len(edge['supporters'])
                     key = str(first_piece_id)+orient+str(second_piece_id)
@@ -95,7 +95,7 @@ def db_update():
                     sLen = float(edge['sLen'])
                     db_update.edges_confidence[e] = wp/(wn + wp) if (wn + wp) > 0 else 0
                     if Config.measure_weight:
-                        measure = wn * oLen - wp * sLen
+                        measure = wn - wp
                     else:
                         measure = oLen - sLen
                     measure_dict[key] = measure
