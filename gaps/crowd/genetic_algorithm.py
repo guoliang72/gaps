@@ -299,7 +299,6 @@ class GeneticAlgorithm(object):
                         fittest = child
                         redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
                         res = redis_cli.set(redis_key, json.dumps(list(child.edges_set())))
-                        print(res, list(child.edges_set()))
                         #print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
                         solution_found = True
                         elites_db.add(child.to_json_data(generation+1, start_time))
@@ -381,6 +380,7 @@ class GeneticAlgorithm(object):
 
         correct_links = 0
         #self._remove_unconfident_edges(self.common_edges)
+        self.old_common_edges = self.common_edges
         self.common_edges = self._merge_common_edges(edges_set, confident_edges_set)
         for e in self.common_edges:
             left, right = e.split('-')
@@ -401,10 +401,10 @@ class GeneticAlgorithm(object):
         redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
         redis_cli.set(redis_key, json.dumps(list(edges_set)))
         
-        print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
-            '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
-            '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges), 
-            '\nedges set in GA:', self.common_edges)
+        if len(self.old_common_edges) != len(self.common_edges):
+            print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
+                '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
+                '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges))
         
         return edges_set
 
