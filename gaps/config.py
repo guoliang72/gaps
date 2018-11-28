@@ -39,7 +39,7 @@ class ConfigClass:
 	redis_port = 6379
 
 	# mongodb authentication.
-	authentication = False
+	authentication = True
 	username = "symbol" # change it to your username.
 	password = "Saw@PKU_1726" # change it to your password.
 

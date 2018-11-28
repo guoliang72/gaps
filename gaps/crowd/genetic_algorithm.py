@@ -111,6 +111,10 @@ class GeneticAlgorithm(object):
         self.common_edges = set()
 
     def start_evolution(self, verbose):
+        with open('result_file_%d.csv' % Config.round_id , 'w') as f:
+            line = "%s,%s,%s,%s,%s,%s,%s\n" % ('time', 'cog_index', 'correct_in_db',
+                'total_in_db', 'correct_in_GA', 'total_in_GA', 'precision')
+            f.write(line)
         '''
         print("=== Pieces:      {}\n".format(len(self._pieces)))
         '''
@@ -158,7 +162,6 @@ class GeneticAlgorithm(object):
 
         old_crowd_edge_count = 1
         for generation in range(self._generations):
-            
             if not Config.cli_args.online and not Config.cli_args.hide_detail:
                 print_progress(generation, self._generations - 1, prefix="=== Solving puzzle offline: ", start_time=start_time)
             
@@ -299,6 +302,7 @@ class GeneticAlgorithm(object):
                         fittest = child
                         redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
                         res = redis_cli.set(redis_key, json.dumps(list(child.edges_set())))
+                        #print(res, list(child.edges_set()))
                         #print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
                         solution_found = True
                         elites_db.add(child.to_json_data(generation+1, start_time))
@@ -394,8 +398,9 @@ class GeneticAlgorithm(object):
                     correct_links += 1
         
         with open('result_file_%d.csv' % Config.round_id , 'a') as f:
-            line = "%d,%d,%d,%d,%d,%d\n" % (Config.timestamp, db_update.cog_index, db_update.crowd_correct_edge,
-                db_update.crowd_edge_count, correct_links, len(self.common_edges))
+            line = "%d,%d,%d,%d,%d,%d,%.4f\n" % (Config.timestamp, db_update.cog_index, db_update.crowd_correct_edge,
+                db_update.crowd_edge_count, correct_links, len(self.common_edges), 
+                0 if len(self.common_edges) == 0 else float(correct_links) / float(len(self.common_edges)))
             f.write(line)
         
         redis_key = 'round:' + str(Config.round_id) + ':GA_edges'

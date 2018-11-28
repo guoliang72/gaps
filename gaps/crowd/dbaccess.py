@@ -6,6 +6,9 @@ import os
 import json
 import time
 import sys
+import redis
+
+redis_cli = redis.Redis(connection_pool=Config.pool)
 
 class MongoWrapper(object):
 	def __init__(self):
@@ -21,9 +24,14 @@ class MongoWrapper(object):
 		return self.db['rounds'].find_one({'round_id': Config.round_id})
 
 	def edges_documents(self):
+		edges_saved = redis_cli.get('round:' + str(Config.round_id) + ':edges_saved')
+		if edges_saved:
+			return json.loads(edges_saved)
+		'''
 		r = self.db['rounds'].find_one({'round_id': Config.round_id})
 		if 'edges_saved' in r:
 			return r['edges_saved']
+		'''
 		return None
 
 	def shapes_documents(self):

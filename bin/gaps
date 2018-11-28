@@ -79,12 +79,12 @@ if __name__ == "__main__":
     Config.erase_edge = args.erase_edge
     Config.use_pixel = args.use_pixel
     Config.data_server = args.data_server
-    from gaps.crowd.dbaccess import mongo_wrapper
     Config.pool = redis.ConnectionPool(host=Config.data_server,port=Config.redis_port,decode_responses=True)
     Config.measure_weight = args.measure_weight
     if not args.online:
         Config.offline_start_percent = args.start_at
     Config.cli_args = args
+    from gaps.crowd.dbaccess import mongo_wrapper
     set_round_info(args)
     print('imagePath: %s, measure_weight: %s, use_pixel: %s, erase_edge: %d' % \
         (args.image, str(Config.measure_weight), str(Config.use_pixel), Config.erase_edge))
