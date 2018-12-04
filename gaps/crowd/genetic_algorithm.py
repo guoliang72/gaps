@@ -108,7 +108,7 @@ class GeneticAlgorithm(object):
         self.columns = columns
         self._population = [Individual(pieces, rows, columns) for _ in range(population_size)]
         self._pieces = pieces
-        self.common_edges = set()
+        self.common_edges = dict()
 
     def start_evolution(self, verbose):
         with open('result_file_%d.csv' % Config.round_id , 'w') as f:
@@ -384,9 +384,18 @@ class GeneticAlgorithm(object):
 
         correct_links = 0
         #self._remove_unconfident_edges(self.common_edges)
-        self.old_common_edges = self.common_edges
-        self.common_edges = self._merge_common_edges(edges_set, confident_edges_set)
-        for e in self.common_edges:
+        old_common_edges = list(self.common_edges.items())
+        for k, v in old_common_edges:
+            if v < 1:
+                del self.common_edges[k]
+            else:
+                self.common_edges[k] = v / 2
+
+        new_common_edges = self._merge_common_edges(edges_set, confident_edges_set)
+
+        for e in new_common_edges:
+            self.common_edges[e] = 32
+        for e in self.common_edges.keys():
             left, right = e.split('-')
             x = int(left[:-1])
             y = int(right[1:])
@@ -404,12 +413,11 @@ class GeneticAlgorithm(object):
             f.write(line)
         
         redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
-        redis_cli.set(redis_key, json.dumps(list(edges_set)))
+        redis_cli.set(redis_key, json.dumps(list(self.common_edges.keys())))
         
-        if len(self.old_common_edges) != len(self.common_edges):
-            print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
-                '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
-                '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges))
+        print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
+            '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
+            '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges))
         
         return edges_set
 
