@@ -9,7 +9,7 @@ class ConfigClass:
 
 	search_depth = 30000
 
-	population = 200
+	population = 400
 	crowd_population = 25
 
 	elite_percentage = 0.02
@@ -18,7 +18,7 @@ class ConfigClass:
 
 	generations = 10000000
 
-	multiprocess = False
+	multiprocess = True
 
 	# whether we use pixel informtion
 	only_pixel = False
@@ -47,7 +47,7 @@ class ConfigClass:
 	cli_args = None
 
 	# number of processes for multiprocessing on crossover operation.
-	process_num = 1
+	process_num = 8
 
 	_total_edges = None
 

@@ -83,6 +83,8 @@ if __name__ == "__main__":
     Config.measure_weight = args.measure_weight
     if not args.online:
         Config.offline_start_percent = args.start_at
+    Config.rows = args.rows
+    Config.cols = args.cols
     Config.cli_args = args
     from gaps.crowd.dbaccess import mongo_wrapper
     set_round_info(args)

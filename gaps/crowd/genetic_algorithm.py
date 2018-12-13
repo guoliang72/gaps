@@ -11,28 +11,53 @@ from gaps.crowd.individual import Individual
 from gaps.crowd.nodes import NodesAndHints
 from gaps.crowd.crowd_individual import CrowdIndividual
 from gaps.crowd.image_analysis import ImageAnalysis
-from gaps.crowd.fitness import db_update
-from gaps.crowd.dbaccess import JsonDB, mongo_wrapper
 from gaps.config import Config
 from multiprocessing import Process, Queue
+from gaps.crowd.fitness import db_update, dissimilarity_measure
+from gaps.crowd.dbaccess import mongo_wrapper
 import redis
 import json
 
 redis_cli = redis.Redis(connection_pool=Config.pool)
 
-def worker(data_q, res_q):
+def worker(pid, start_time, pieces):
+    from gaps.crowd.fitness import db_update
     while True:
-        best_match_table, parents = data_q.get(block=True)
-        ImageAnalysis.best_match_table = best_match_table
+        redis_key = 'round:%d:dissimilarity' % Config.round_id
+        dissimilarity_json = redis_cli.get(redis_key)
+        if dissimilarity_json:
+            dissimilarity_measure.measure_dict = json.loads(dissimilarity_json)
+        else:
+            continue
+        refreshTimeStamp(start_time)
+        #db_update()
+        ImageAnalysis.analyze_image(pieces)
+        redis_key = 'round:%d:parents' % (Config.round_id)
+        parents_json = redis_cli.hget(redis_key, 'process:%d' % pid)
+        if parents_json:
+            parents_data = json.loads(parents_json)
+            #print(pid, len(parents_data))
+            if not parents_data or len(parents_data) != 49:
+                continue
+            parents = [(Individual([pieces[_] for _ in f], Config.cli_args.rows, Config.cli_args.cols, False), 
+                Individual([pieces[_] for _ in s], Config.cli_args.rows, Config.cli_args.cols, False))
+                for (f, s) in parents_data]
+        else:
+            continue
+
+        #print('process %d get %d parents' % (pid, len(parents)))
         children = []
         for first_parent, second_parent in parents:
             crossover = Crossover(first_parent, second_parent)
             crossover.run()
             child = crossover.child()
-            child.is_solution() # is_solution is a decorated function. calculate here.
             children.append(child)
-        res_q.put(children, block=True)
-    # return children, has_solution, solution
+
+        #print('process %d put %d children' % (pid, len(children)))
+        redis_key = 'round:%d:children' % (Config.round_id)
+        children_data = json.dumps([child.get_pieces_id_list() for child in children])
+        redis_cli.hset(redis_key, 'process:%d' % pid, children_data)
+
 
 def refreshTimeStamp(start_time):
     Config.timestamp = (time.time() - start_time) * 1000
@@ -126,28 +151,9 @@ class GeneticAlgorithm(object):
         #ImageAnalysis.analyze_image(self._pieces)
 
         start_time = time.time()
-        old_correct_links_percentage = 0.0
-        correct_links_percentage = 0.0
 
         fittest = None
         best_fitness_score = float("-inf")
-        '''
-        termination_counter = 0
-        '''
-
-        # save elites of each generation.
-        if Config.cli_args.online:
-            # online
-            elites_db = JsonDB(collection_name='elites', doc_name='round'+str(Config.round_id))
-        else:
-            # offline
-            collection_name = 'elites_offline_mp' if Config.multiprocess else \
-                'elites_offline_pixel' if Config.use_pixel else'elites_offline'
-            elites_db = JsonDB(collection_name=collection_name, doc_name='round'+str(Config.round_id)\
-                +'_'+Config.fitness_func_name+'_paper_'+str(Config.rank_based_MAX)+'_skiprecom_'\
-                +str(Config.population)+'_'+str(Config.elite_percentage)\
-                +('_SUS' if Config.roulette_alt == True else '')+('_{}'.format(Config.use_pixel_shred)\
-                if Config.use_pixel else '')+'_'+str(Config.erase_edge)+'_debug')
        
         solution_found = False
 
@@ -155,10 +161,14 @@ class GeneticAlgorithm(object):
             data_q = Queue()
             res_q = Queue()
             processes = []
-            for i in range(Config.process_num):
-                p = Process(target=worker, args=(data_q, res_q))
+            for pid in range(Config.process_num):
+                p = Process(target=worker, args=(pid, start_time, self._pieces[:]))
                 p.start()
                 processes.append(p)
+                redis_key = 'round:%d:parents' % (Config.round_id)
+                redis_cli.hdel(redis_key, 'process:%d' % pid)
+                redis_key = 'round:%d:children' % (Config.round_id)
+                redis_cli.hdel(redis_key, 'process:%d' % pid)
 
         old_crowd_edge_count = 1
         for generation in range(self._generations):
@@ -171,26 +181,16 @@ class GeneticAlgorithm(object):
             ## at the beginning of each generation.
             # update fitness from database.
             
+            generation_start_time = time.time()
+
             db_update()
-            #print(ImageAnalysis.dissimilarity_measures)
             if not Config.cli_args.hide_detail:
                 print("edge_count:{}/edge_prop:{}".format(db_update.crowd_edge_count, db_update.crowd_edge_count/Config.total_edges))
-            '''
-            if db_update.crowd_edge_count * 1.0 / old_crowd_edge_count > 10:
-                crowdIndividual = CrowdIndividual(self._pieces, self.rows, self.columns)
-                crowd_population = crowdIndividual.getIndividuals()
-                self._population.extend(crowd_population)
-                old_crowd_edge_count = db_update.crowd_edge_count
-                print("generate individuals according to edges")
-                aver_edges_match = [0.0, 0.0, 0.0, 0.0]
-                for e in crowd_population:
-                    cm, ucm, cem, em = compute_edges_match(e, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp))
-                    aver_edges_match[0] += cm
-                    aver_edges_match[1] += ucm
-                    aver_edges_match[2] += cem
-                    aver_edges_match[3] += em
-                print('edges_match in crowd first generation', [m / len (crowd_population) for m in aver_edges_match])
-            '''
+            
+            redis_key = 'round:%d:dissimilarity' % Config.round_id
+            dissimilarity_json = json.dumps(dissimilarity_measure.measure_dict)
+            #print(dissimilarity_json)
+            redis_cli.set(redis_key, dissimilarity_json)
             # calculate dissimilarity and best_match_table.
             ImageAnalysis.analyze_image(self._pieces)
             # fitness of all individuals need to be re-calculated.
@@ -198,23 +198,17 @@ class GeneticAlgorithm(object):
                 _individual._objective = None
                 _individual._fitness = None
 
+            db_update_time = time.time()
+
             new_population = []
 
             # random.shuffle(self._population)
             self._population.sort(key=attrgetter("objective"))
+            #print(','.join([str(ind.get_pieces_id_list()) for ind in self._population]))
             # Elitism
             # elite = self._get_elite_individuals(elites=self._elite_size)
             elite = self._population[-self._elite_size:]
-            '''
-            aver_edges_match = [0.0, 0.0, 0.0, 0.0]
-            for e in elite:
-                cm, ucm, cem, em = compute_edges_match(e, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp))
-                aver_edges_match[0] += cm
-                aver_edges_match[1] += ucm
-                aver_edges_match[2] += cem
-                aver_edges_match[3] += em
-            print('edges_match in elite', [m / len (elite) for m in aver_edges_match])
-            '''
+            
             new_population.extend(elite)
             
             if Config.fitness_func_name == 'rank-based':
@@ -222,10 +216,8 @@ class GeneticAlgorithm(object):
                 # for rank, indiv in enumerate(self._population):
                 #     indiv.calc_rank_fitness(rank)
                 self.calc_rank_fitness()
-            
-            # write elites to Json
-            for e in elite:
-                elites_db.add(e.to_json_data(generation, start_time))
+
+            select_elite_time = time.time()
 
             if solution_found:
                 print("GA found a solution for round {}!".format(Config.round_id))
@@ -244,101 +236,75 @@ class GeneticAlgorithm(object):
             self._get_common_edges(elite)
 
             selected_parents = roulette_selection(self._population, elites=self._elite_size)
-
+            select_parent_time = time.time()
+            result = []
             if Config.multiprocess:
                 # multiprocessing
                 worker_args = []
                 # assign equal amount of work to process_num-1 processes
-                for i in range(Config.process_num-1):
-                    worker_args.append(selected_parents[(len(selected_parents)//Config.process_num)*i \
-                        : (len(selected_parents)//Config.process_num)*(i+1)])
-                # assign the rest to the last process
-                worker_args.append(selected_parents[(len(selected_parents)//Config.process_num)*(Config.process_num-1):len(selected_parents)])
-                # t1 = time.time()
-                # with Pool(processes=Config.process_num) as pool:
-                #     t1 = time.time()
-                #     results = pool.map(worker, worker_args)
-                #     print('from mp:{}'.format(time.time()-t1))
-                for i in range(Config.process_num):
-                    data_q.put((ImageAnalysis.best_match_table, worker_args[i]),\
-                        block=True)
-                results = []
-                for i in range(Config.process_num):
-                    results.append(res_q.get(block=True))
+                redis_key = 'round:%d:parents' % (Config.round_id)
+                for pid in range(Config.process_num):
+                    parents_data = json.dumps([(f_parent.get_pieces_id_list(), s_parent.get_pieces_id_list()) 
+                        for (f_parent, s_parent) in selected_parents[(len(selected_parents)//Config.process_num)*pid \
+                        : (len(selected_parents)//Config.process_num)*(pid+1)]])
+                    redis_cli.hset(redis_key, 'process:%d' % pid, parents_data)
+                redis_key = 'round:%d:children' % (Config.round_id)
+                for pid in range(Config.process_num):
+                    while True:
+                        children_json = redis_cli.hget(redis_key, 'process:%d' % pid)
+                        if children_json:
+                            children_data = json.loads(children_json)
+                            if children_data:
+                                if len(children_data) != 49:
+                                    continue
+                                children = [Individual([self._pieces[_] for _ in c], Config.cli_args.rows, Config.cli_args.cols, False) 
+                                    for c in children_data]
+                                result.extend(children)
+                                '''
+                                redis_key = 'round:%d:parents' % (Config.round_id)
+                                redis_cli.hdel(redis_key, 'process:%d' % pid)
+                                '''
+                                redis_key = 'round:%d:children' % (Config.round_id)
+                                redis_cli.hdel(redis_key, 'process:%d' % pid)
+                                break
 
             else:
                 # non multiprocessing
-                result = []
                 for first_parent, second_parent in selected_parents:
                     crossover = Crossover(first_parent, second_parent)
                     crossover.run()
                     child = crossover.child()
                     result.append(child)
-                    # if child.is_solution():
-                    #     elites_db.add(child.to_json_data(generation+1, start_time))
-                    #     elites_db.save()
-                    #     solution_found = True
-                    # new_population.append(child)
-                results = [result]
 
-            aver_edges_match = [0.0, 0.0, 0.0, 0.0]
-            for result in results:
-                new_population.extend(result)
-                for child in result:
-                    '''
-                    cm, ucm, cem, em = compute_edges_match(e, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp))
-                    aver_edges_match[0] += cm
-                    aver_edges_match[1] += ucm
-                    aver_edges_match[2] += cem
-                    aver_edges_match[3] += em
-                    '''
+            new_population.extend(result)
+            for child in new_population:
+                if child.is_solution():
+                    fittest = child
+                    redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
+                    res = redis_cli.set(redis_key, json.dumps(list(child.edges_set())))
+                    solution_found = True
+                    break
 
-                    correct_links_percentage = child.compute_correct_links_percentage()
-                    if correct_links_percentage > old_correct_links_percentage:
-                        #print("time: %.6fs, correct_links_percentage: %.6f" % (time.time() - start_time, 100 * correct_links_percentage))
-                        old_correct_links_percentage = correct_links_percentage
-                    
-                    if child.is_solution():
-                        fittest = child
-                        redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
-                        res = redis_cli.set(redis_key, json.dumps(list(child.edges_set())))
-                        #print(res, list(child.edges_set()))
-                        #print(compute_edges_match(child, self.columns, mongo_wrapper.cog_edges_documents(Config.timestamp)))
-                        solution_found = True
-                        elites_db.add(child.to_json_data(generation+1, start_time))
-                        elites_db.save()
-                        break
-                # time_count += result[3]
-                # if result[1] and not solution_found: # has solution
-                #     solution_found = True
-                #     elites_db.add(result[2].to_json_data(generation+1, start_time))
-                #     elites_db.save()
-            #print('edges_match in children', [m / sum([len(r) for r in results]) for m in aver_edges_match])
-
+            crossover_time = time.time()
             if not solution_found:
                 fittest = self._best_individual()
                 if fittest.fitness > best_fitness_score:
                     best_fitness_score = fittest.fitness
-
-            '''
-            if fittest.fitness <= best_fitness_score:
-                termination_counter += 1
-            else:
-                best_fitness_score = fittest.fitness
-
-            if termination_counter == self.TERMINATION_THRESHOLD:
-                print("\n\n=== GA terminated")
-                print("=== There was no improvement for {} generations".format(self.TERMINATION_THRESHOLD))
-                return fittest
-            '''
 
             self._population = new_population
         
             if verbose:
                 from gaps.plot import Plot
                 plot.show_fittest(fittest.to_image(), "Generation: {} / {}".format(generation + 1, self._generations))
-
-        elites_db.save()    
+            
+            times = {
+                'generation_time': time.time() - generation_start_time, 
+                'db_update_time': db_update_time - generation_start_time, 
+                'select_elite_time': select_elite_time - db_update_time, 
+                'select_parent_time': select_parent_time - select_elite_time, 
+                'crossover_time': crossover_time - select_parent_time
+            }
+            print(times)
         return fittest
 
     def _remove_unconfident_edges(self, edges_set):

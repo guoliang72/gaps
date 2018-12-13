@@ -17,7 +17,6 @@ class Crossover(object):
         self._pieces_length = len(first_parent.pieces)
         self._child_rows = first_parent.rows
         self._child_columns = first_parent.columns
-
         # Borders of growing kernel
         self._min_row = 0
         self._max_row = 0
@@ -56,7 +55,6 @@ class Crossover(object):
             if piece_id in self._kernel:
                 self.add_piece_candidate(relative_piece[0], relative_piece[1], position)
                 continue
-
             self._put_piece_to_kernel(piece_id, position)
 
     def _initialize_kernel(self):
@@ -70,7 +68,6 @@ class Crossover(object):
 
     def _update_candidate_pieces(self, piece_id, position):
         available_boundaries = self._available_boundaries(position)
-
         for orientation, position in available_boundaries:
             self.add_piece_candidate(piece_id, orientation, position)
 
@@ -84,7 +81,6 @@ class Crossover(object):
         if self._is_valid_piece(buddy_piece):
             self._add_buddy_piece_candidate(buddy_piece, position, (piece_id, orientation))
             return
-
 
 
         best_match_piece, priority = self._get_best_match_piece(piece_id, orientation)
@@ -144,6 +140,8 @@ class Crossover(object):
     def _available_boundaries(self, row_and_column):
         (row, column) = row_and_column
         boundaries = []
+
+
 
         if not self._is_kernel_full():
             positions = {
