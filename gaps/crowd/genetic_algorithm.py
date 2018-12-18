@@ -17,11 +17,27 @@ from gaps.crowd.fitness import db_update, dissimilarity_measure
 from gaps.crowd.dbaccess import mongo_wrapper
 import redis
 import json
+import numpy as np
 
 redis_cli = redis.Redis(connection_pool=Config.pool)
 
-def worker(pid, start_time, pieces):
+def worker(pid, start_time, pieces, elite_size):
+    def calc_rank_fitness(population):
+        rank1 = 0
+        while rank1 < len(population):
+            fitness1 = Config.get_rank_fitness(rank1, len(population))
+            indiv1 = population[rank1]
+            rank2 = rank1 + 1
+            for rank2 in range(rank1+1, len(population)):
+                indiv2 = population[rank2]
+                if abs(indiv1.objective-indiv2.objective) > 1e-6:
+                    break
+            fitness2 = Config.get_rank_fitness(rank2 - 1, len(population))
+            for indiv in population[rank1: rank2]:
+                indiv._fitness = (fitness1 + fitness2) / 2.0
+            rank1 = rank2
     from gaps.crowd.fitness import db_update
+    children = set()
     while True:
         redis_key = 'round:%d:dissimilarity' % Config.round_id
         dissimilarity_json = redis_cli.get(redis_key)
@@ -34,28 +50,45 @@ def worker(pid, start_time, pieces):
         ImageAnalysis.analyze_image(pieces)
         redis_key = 'round:%d:parents' % (Config.round_id)
         parents_json = redis_cli.hget(redis_key, 'process:%d' % pid)
+        parents = []
+        elite = []
         if parents_json:
             parents_data = json.loads(parents_json)
             #print(pid, len(parents_data))
-            if not parents_data or len(parents_data) != 49:
+            if parents_data and len(parents_data) == 49:       
+                parents = [(Individual([pieces[_] for _ in f], Config.cli_args.rows, Config.cli_args.cols, False), 
+                    Individual([pieces[_] for _ in s], Config.cli_args.rows, Config.cli_args.cols, False))
+                    for (f, s) in parents_data]
+                #print('process %d get %d parents from redis' % (pid, len(parents)))
+        if not parents:
+            if not children:
                 continue
-            parents = [(Individual([pieces[_] for _ in f], Config.cli_args.rows, Config.cli_args.cols, False), 
-                Individual([pieces[_] for _ in s], Config.cli_args.rows, Config.cli_args.cols, False))
-                for (f, s) in parents_data]
-        else:
-            continue
-
-        #print('process %d get %d parents' % (pid, len(parents)))
-        children = []
+            children = list(map(lambda x: [int(_) for _ in x.split(',')], children))
+            children = [Individual([pieces[_] for _ in c], Config.cli_args.rows, Config.cli_args.cols, False) for c in children]
+            children.sort(key=attrgetter("objective"))
+            elite = children[-elite_size:] if elite_size > 0 else []
+            calc_rank_fitness(children)
+            parents = roulette_selection(children, elites=elite_size)
+            #print('process %d get %d parents from itself' % (pid, len(parents)))
+        
+        children = set()
         for first_parent, second_parent in parents:
             crossover = Crossover(first_parent, second_parent)
             crossover.run()
             child = crossover.child()
-            children.append(child)
+            children.add(','.join([str(_) for _ in child.get_pieces_id_list()]))
 
+        #print(len(children))
+        while len(children) < 49:
+            random_child = [str(i) for i in range(len(pieces))]
+            np.random.shuffle(random_child)
+            #print(random_child)
+            children.add(','.join(random_child))
+
+        #print(len(children))
         #print('process %d put %d children' % (pid, len(children)))
         redis_key = 'round:%d:children' % (Config.round_id)
-        children_data = json.dumps([child.get_pieces_id_list() for child in children])
+        children_data = json.dumps(list(children))
         redis_cli.hset(redis_key, 'process:%d' % pid, children_data)
 
 
@@ -162,7 +195,7 @@ class GeneticAlgorithm(object):
             res_q = Queue()
             processes = []
             for pid in range(Config.process_num):
-                p = Process(target=worker, args=(pid, start_time, self._pieces[:]))
+                p = Process(target=worker, args=(pid, start_time, self._pieces[:], 0))
                 p.start()
                 processes.append(p)
                 redis_key = 'round:%d:parents' % (Config.round_id)
@@ -233,21 +266,23 @@ class GeneticAlgorithm(object):
                     for p in processes:
                         p.terminate()
                 exit(0)
-            self._get_common_edges(elite)
+            self._get_common_edges(elite[:4])
 
             selected_parents = roulette_selection(self._population, elites=self._elite_size)
             select_parent_time = time.time()
-            result = []
+            result = set()
             if Config.multiprocess:
                 # multiprocessing
                 worker_args = []
                 # assign equal amount of work to process_num-1 processes
                 redis_key = 'round:%d:parents' % (Config.round_id)
+                redis_data = {}
                 for pid in range(Config.process_num):
                     parents_data = json.dumps([(f_parent.get_pieces_id_list(), s_parent.get_pieces_id_list()) 
                         for (f_parent, s_parent) in selected_parents[(len(selected_parents)//Config.process_num)*pid \
                         : (len(selected_parents)//Config.process_num)*(pid+1)]])
-                    redis_cli.hset(redis_key, 'process:%d' % pid, parents_data)
+                    redis_data['process:%d' % pid] = parents_data
+                redis_cli.hmset(redis_key, redis_data)
                 redis_key = 'round:%d:children' % (Config.round_id)
                 for pid in range(Config.process_num):
                     while True:
@@ -257,15 +292,14 @@ class GeneticAlgorithm(object):
                             if children_data:
                                 if len(children_data) != 49:
                                     continue
-                                children = [Individual([self._pieces[_] for _ in c], Config.cli_args.rows, Config.cli_args.cols, False) 
-                                    for c in children_data]
-                                result.extend(children)
-                                '''
+               
                                 redis_key = 'round:%d:parents' % (Config.round_id)
                                 redis_cli.hdel(redis_key, 'process:%d' % pid)
-                                '''
+                                
                                 redis_key = 'round:%d:children' % (Config.round_id)
                                 redis_cli.hdel(redis_key, 'process:%d' % pid)
+
+                                result.update(children_data)
                                 break
 
             else:
@@ -274,8 +308,16 @@ class GeneticAlgorithm(object):
                     crossover = Crossover(first_parent, second_parent)
                     crossover.run()
                     child = crossover.child()
-                    result.append(child)
+                    result.add(','.join([str(_) for _ in child.get_pieces_id_list()]))
 
+            while len(result) < len(selected_parents):
+                random_child = [str(i) for i in range(len(self._pieces))]
+                np.random.shuffle(random_child)
+                result.add(','.join(random_child))
+
+            result = list(map(lambda x: [int(_) for _ in x.split(',')], result))
+            result = [Individual([self._pieces[_] for _ in c], Config.cli_args.rows, Config.cli_args.cols, False) for c in result]
+            
             new_population.extend(result)
             for child in new_population:
                 if child.is_solution():
@@ -349,6 +391,7 @@ class GeneticAlgorithm(object):
             edges_set = edges_set & edges_sets[i]
 
         correct_links = 0
+
         #self._remove_unconfident_edges(self.common_edges)
         old_common_edges = list(self.common_edges.items())
         for k, v in old_common_edges:
@@ -357,11 +400,13 @@ class GeneticAlgorithm(object):
             else:
                 self.common_edges[k] = v / 2
 
-        new_common_edges = self._merge_common_edges(edges_set, confident_edges_set)
-
+        new_common_edges = self._merge_common_edges(confident_edges_set, edges_set)
+        #new_common_edges = self._merge_common_edges(self.common_edges.keys(), new_common_edges)
+        
         for e in new_common_edges:
             self.common_edges[e] = 32
-        for e in self.common_edges.keys():
+
+        for e in new_common_edges:
             left, right = e.split('-')
             x = int(left[:-1])
             y = int(right[1:])
@@ -374,16 +419,16 @@ class GeneticAlgorithm(object):
         
         with open('result_file_%d.csv' % Config.round_id , 'a') as f:
             line = "%d,%d,%d,%d,%d,%d,%.4f\n" % (Config.timestamp, db_update.cog_index, db_update.crowd_correct_edge,
-                db_update.crowd_edge_count, correct_links, len(self.common_edges), 
-                0 if len(self.common_edges) == 0 else float(correct_links) / float(len(self.common_edges)))
+                db_update.crowd_edge_count, correct_links, len(new_common_edges), 
+                0 if len(new_common_edges) == 0 else float(correct_links) / float(len(new_common_edges)))
             f.write(line)
         
         redis_key = 'round:' + str(Config.round_id) + ':GA_edges'
-        redis_cli.set(redis_key, json.dumps(list(self.common_edges.keys())))
+        redis_cli.set(redis_key, json.dumps(list(new_common_edges)))
         
         print('\ntimestamp:', Config.timestamp, 'cog index:', db_update.cog_index, 
             '\ncorrect edges in db:', db_update.crowd_correct_edge, 'total edges in db:', db_update.crowd_edge_count, 
-            '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(self.common_edges))
+            '\ncorrect edges in GA:', correct_links, 'total edges in GA:', len(new_common_edges))
         
         return edges_set
 

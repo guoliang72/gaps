@@ -26,7 +26,7 @@ def update_shape_dissimilarity(measure_dict):
 
 @static_vars(mongodb=mongo_wrapper, 
     secs_diff=time.time() * 1000 - mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent,
-    crowd_edge_count=0, only_pixel_update=False, crowd_correct_edge=0, cog_index = 0, edges_confidence={})
+    crowd_edge_count=0, only_pixel_update=False, crowd_correct_edge=0, cog_index = -1, edges_confidence={})
 def db_update():
     """ Update dissimilarity_measure.measure_didct from mongo database. """
     if Config.only_pixel:
@@ -77,7 +77,7 @@ def db_update():
             # offline
             measure_dict = dissimilarity_measure.measure_dict
             #measure_dict.clear()
-            edges, db_update.cog_index = db_update.mongodb.cog_edges_documents(Config.timestamp)
+            edges, db_update.cog_index = db_update.mongodb.cog_edges_documents(Config.timestamp, db_update.cog_index)
             if edges:
                 db_update.crowd_edge_count = len(edges)
                 db_update.crowd_correct_edge = 0

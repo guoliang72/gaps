@@ -19,6 +19,7 @@ class MongoWrapper(object):
 		self.db = self.client.CrowdJigsaw
 		self.winner_time = 0
 		self.shapeArray = None
+		self.cogs = None
 
 	def round_document(self):
 		return self.db['rounds'].find_one({'round_id': Config.round_id})
@@ -39,13 +40,19 @@ class MongoWrapper(object):
 			self.shapeArray = json.loads(self.db['rounds'].find_one({'round_id': Config.round_id})['shapeArray'])
 		return self.shapeArray
 
-	def cog_edges_documents(self, timestamp):
-		cogs = list(self.db['cogs'].find({'round_id': Config.round_id, 'time':{'$gt':0, '$lte':timestamp}}))
+	def cog_edges_documents(self, timestamp, cog_index):
+		if not self.cogs:
+			self.cogs = list(self.db['cogs'].find({'round_id': Config.round_id}))
+		cogs = self.cogs
 		if len(cogs) > 0:
-			if 'edges_saved' in cogs[-1]:
-				return cogs[-1]['edges_saved'], len(cogs)-1
-			elif 'edges_changed' in cogs[-1]:
-				return cogs[-1]['edges_changed'], len(cogs)-1
+			cur, cog_index = None, cog_index if cog_index >= 0 else 0
+			for i in range(cog_index, len(cogs)):
+				if cogs[i]['time'] <= timestamp:
+					cur, cog_index = cogs[i], i
+			if cur and 'edges_saved' in cur:
+				return cur['edges_saved'], cog_index
+			elif cur and 'edges_changed' in cur:
+				return cur['edges_changed'], cog_index
 		return None, -1
 
 	def cogs_documents(self, timestamp):
