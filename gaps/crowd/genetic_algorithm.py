@@ -37,7 +37,6 @@ def worker(pid, start_time, pieces, elite_size):
                 indiv._fitness = (fitness1 + fitness2) / 2.0
             rank1 = rank2
     from gaps.crowd.fitness import db_update
-    children = set()
     while True:
         redis_key = 'round:%d:dissimilarity' % Config.round_id
         dissimilarity_json = redis_cli.get(redis_key)
@@ -61,34 +60,19 @@ def worker(pid, start_time, pieces, elite_size):
                     for (f, s) in parents_data]
                 #print('process %d get %d parents from redis' % (pid, len(parents)))
         if not parents:
-            if not children:
-                continue
-            children = list(map(lambda x: [int(_) for _ in x.split(',')], children))
-            children = [Individual([pieces[_] for _ in c], Config.cli_args.rows, Config.cli_args.cols, False) for c in children]
-            children.sort(key=attrgetter("objective"))
-            elite = children[-elite_size:] if elite_size > 0 else []
-            calc_rank_fitness(children)
-            parents = roulette_selection(children, elites=elite_size)
-            #print('process %d get %d parents from itself' % (pid, len(parents)))
+            continue
         
-        children = set()
+        children = []
         for first_parent, second_parent in parents:
             crossover = Crossover(first_parent, second_parent)
             crossover.run()
             child = crossover.child()
-            children.add(','.join([str(_) for _ in child.get_pieces_id_list()]))
-
-        #print(len(children))
-        while len(children) < 49:
-            random_child = [str(i) for i in range(len(pieces))]
-            np.random.shuffle(random_child)
-            #print(random_child)
-            children.add(','.join(random_child))
+            children.append(','.join([str(_) for _ in child.get_pieces_id_list()]))
 
         #print(len(children))
         #print('process %d put %d children' % (pid, len(children)))
         redis_key = 'round:%d:children' % (Config.round_id)
-        children_data = json.dumps(list(children))
+        children_data = json.dumps(children)
         redis_cli.hset(redis_key, 'process:%d' % pid, children_data)
 
 
@@ -270,7 +254,7 @@ class GeneticAlgorithm(object):
 
             selected_parents = roulette_selection(self._population, elites=self._elite_size)
             select_parent_time = time.time()
-            result = set()
+            result = []
             if Config.multiprocess:
                 # multiprocessing
                 worker_args = []
@@ -299,7 +283,7 @@ class GeneticAlgorithm(object):
                                 redis_key = 'round:%d:children' % (Config.round_id)
                                 redis_cli.hdel(redis_key, 'process:%d' % pid)
 
-                                result.update(children_data)
+                                result.extend(children_data)
                                 break
 
             else:
@@ -308,12 +292,7 @@ class GeneticAlgorithm(object):
                     crossover = Crossover(first_parent, second_parent)
                     crossover.run()
                     child = crossover.child()
-                    result.add(','.join([str(_) for _ in child.get_pieces_id_list()]))
-
-            while len(result) < len(selected_parents):
-                random_child = [str(i) for i in range(len(self._pieces))]
-                np.random.shuffle(random_child)
-                result.add(','.join(random_child))
+                    result.append(','.join([str(_) for _ in child.get_pieces_id_list()]))
 
             result = list(map(lambda x: [int(_) for _ in x.split(',')], result))
             result = [Individual([self._pieces[_] for _ in c], Config.cli_args.rows, Config.cli_args.cols, False) for c in result]
@@ -381,11 +360,11 @@ class GeneticAlgorithm(object):
             confident_edges_set = individual.confident_edges_set()
             edges_sets.append(edges_set)
             confident_edges_sets.append(confident_edges_set)
-
+        
         confident_edges_set = confident_edges_sets[0]
         for i in range(1, len(confident_edges_sets)):
             confident_edges_set = confident_edges_set | confident_edges_sets[i]
-
+        
         edges_set = edges_sets[0]
         for i in range(1, len(edges_sets)):
             edges_set = edges_set & edges_sets[i]
@@ -401,7 +380,7 @@ class GeneticAlgorithm(object):
                 self.common_edges[k] = v / 2
 
         new_common_edges = self._merge_common_edges(confident_edges_set, edges_set)
-        #new_common_edges = self._merge_common_edges(self.common_edges.keys(), new_common_edges)
+        new_common_edges = self._merge_common_edges(self.common_edges.keys(), new_common_edges)
         
         for e in new_common_edges:
             self.common_edges[e] = 32
