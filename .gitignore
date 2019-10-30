@@ -3,7 +3,7 @@ __pycache__/
 .cache/
 *.py[cod]
 *$py.class
-
+solution
 # Generated puzzle
 out.jpg
 *_solution.jpg

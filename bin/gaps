@@ -62,7 +62,7 @@ def set_round_info(args):
         #print('get round from redis')
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     #print(base_dir)
-    image_path = os.path.join(base_dir, 'CrowdJigsaw/public/'+round_info['image'])
+    image_path = os.path.join(base_dir, 'gaps/placeholder_10x10.jpg')
     #print(image_path)
     args.image = image_path
 
@@ -92,6 +92,7 @@ if __name__ == "__main__":
         (args.image, str(Config.measure_weight), str(Config.use_pixel), Config.erase_edge))
     image = cv2.imread(args.image)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = cv.resize(image, (args.cols * args.size, args.rows * args.size))
 
     assert args.size is not None
     piece_size = args.size
