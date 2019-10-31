@@ -1,5 +1,7 @@
 import time
 import datetime
+from gaps.config import Config
+import requests
 
 def get_formatted_date(secs = None):
 	secs = secs or time.time()
@@ -21,3 +23,9 @@ def cvt_to_milisecs(formatted_date):
 	dt = datetime.datetime(year, month, day, hour, minute, second)
 	ms = time.mktime(dt.timetuple()) * 1000 + ms
 	return ms
+
+
+def notify_crowdjigsaw_server():
+	url = 'http://%s:3000/round/ga_solve/%d' % (Config.data_server, Config.round_id)
+	res = requests.get(url)
+	print('CrowdJigsaw Server response: %s' % res.text)

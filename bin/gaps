@@ -92,7 +92,7 @@ if __name__ == "__main__":
         (args.image, str(Config.measure_weight), str(Config.use_pixel), Config.erase_edge))
     image = cv2.imread(args.image)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image = cv.resize(image, (args.cols * args.size, args.rows * args.size))
+    image = cv2.resize(image, (args.cols * args.size, args.rows * args.size))
 
     assert args.size is not None
     piece_size = args.size
