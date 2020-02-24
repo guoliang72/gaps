@@ -26,6 +26,6 @@ def cvt_to_milisecs(formatted_date):
 
 
 def notify_crowdjigsaw_server():
-	url = 'http://%s:3000/round/ga_solve/%d' % (Config.data_server, Config.round_id)
+	url = 'https://pintu.fun/round/ga_solve/%d' % (Config.round_id)
 	res = requests.get(url)
 	print('CrowdJigsaw Server response: %s' % res.text)

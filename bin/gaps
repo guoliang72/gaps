@@ -79,7 +79,7 @@ if __name__ == "__main__":
     Config.erase_edge = args.erase_edge
     Config.use_pixel = args.use_pixel
     Config.data_server = args.data_server
-    Config.pool = redis.ConnectionPool(host=Config.data_server,port=Config.redis_port,decode_responses=True)
+    Config.pool = redis.ConnectionPool(host=Config.data_server,port=Config.redis_port,password=Config.redis_auth,db=Config.redis_db,decode_responses=True)
     Config.measure_weight = args.measure_weight
     if not args.online:
         Config.offline_start_percent = args.start_at
