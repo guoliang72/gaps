@@ -46,6 +46,7 @@ def parse_arguments():
     parser.add_argument("--start_at", type=float, default=0.0)
     parser.add_argument("--round_id", type=int, required=True)
     parser.add_argument("--data_server", type=str, default='localhost')
+    parser.add_argument("--domain", type=str, default='localhost')
     parser.add_argument("--save", action="store_true", help="Save puzzle result as image.", default=True)
     parser.add_argument("--algorithm", type=str, choices=['edge', 'crowd'], default='crowd')
     parser.add_argument("--online", action="store_true", default=False)
@@ -79,6 +80,7 @@ if __name__ == "__main__":
     Config.erase_edge = args.erase_edge
     Config.use_pixel = args.use_pixel
     Config.data_server = args.data_server
+    Config.domain = args.domain
     Config.pool = redis.ConnectionPool(host=Config.data_server,port=Config.redis_port,password=Config.redis_auth,db=Config.redis_db,decode_responses=True)
     Config.measure_weight = args.measure_weight
     if not args.online:

@@ -15,8 +15,8 @@ class MongoWrapper(object):
 		self.client =  MongoClient(Config.data_server, Config.mongodb_port)
 		# authentication
 		if Config.authentication:
-			self.client.CrowdJigsawTest.authenticate(Config.username, Config.password)
-		self.db = self.client.CrowdJigsawTest
+			self.client[Config.mongodb_database].authenticate(Config.username, Config.password)
+		self.db = self.client[Config.mongodb_database]
 		self.winner_time = 0
 		self.shapeArray = None
 		self.cogs = None

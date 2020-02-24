@@ -35,14 +35,15 @@ class ConfigClass:
 	roulette_alt = True
 
 	data_server = "localhost"
+	domain = "localhost"
 	mongodb_port = 27017
 	redis_port = 6379
 	redis_auth="CISE:1726"
-	redis_db=1
+	redis_db=0
 
 	# mongodb authentication.
 	authentication = True
-	username = "wyh" # change it to your username.
+	username = "CISE" # change it to your username.
 	password = "CISE:1726" # change it to your password.
 
 	# command line arguments. This is set by ./bin/gaps.
