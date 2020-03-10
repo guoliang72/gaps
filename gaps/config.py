@@ -37,6 +37,7 @@ class ConfigClass:
 	data_server = "localhost"
 	domain = "localhost"
 	mongodb_port = 27017
+	mongodb_database = "CrowdJigsaw"
 	redis_port = 6379
 	redis_auth="CISE:1726"
 	redis_db=0
