@@ -12,59 +12,98 @@ def static_vars(**kwargs):
         return func
     return decorate
 
+def update_shape_dissimilarity(measure_dict):
+    shapes = db_update.mongodb.shapes_documents()
+    for first_piece_id in range(len(shapes)):
+        for second_piece_id in range(len(shapes)):
+            #print(shapes[first_piece_id], shapes[second_piece_id])
+            if(shapes[first_piece_id]['rightTab'] + shapes[second_piece_id]['leftTab'] != 0):
+                key = str(first_piece_id) + 'LR' + str(second_piece_id)
+                measure_dict[key] = Config.shape_dissimilarity
+            if(shapes[first_piece_id]['bottomTab'] + shapes[second_piece_id]['topTab'] != 0):
+                key = str(first_piece_id) + 'TD' + str(second_piece_id)
+                measure_dict[key] = Config.shape_dissimilarity
+
 @static_vars(mongodb=mongo_wrapper, 
-    pre_timestamp=get_formatted_date(mongo_wrapper.get_round_start_secs()),
-    secs_diff=time.time()-mongo_wrapper.get_round_start_secs())
+    secs_diff=time.time() * 1000 - mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent,
+    crowd_edge_count=0, only_pixel_update=False, crowd_correct_edge=0, cog_index = -1, edges_confidence={})
 def db_update():
     """ Update dissimilarity_measure.measure_didct from mongo database. """
-    if not Config.cli_args.offline:
-        # online
-        dissimilarity_measure.measure_dict.clear()
-        for d in db_update.mongodb.nodes_documents():
-            first_piece_id = d['index']
-            for orient, orientation in zip(['right', 'bottom'], ['LR', 'TD']):
-                for link in d[orient]:
-                    second_piece_id = link['index']
-                    # In crowd-based algorithm, dissimilarity measure = -(opp_num - sup_num)
-                    measure = link['opp_num'] - link['sup_num']
-                    dissimilarity_measure.measure_dict[str(first_piece_id)+orientation+str(second_piece_id)] = measure
-    else:
-        # offline
-        cur_timestamp = get_formatted_date(time.time()-db_update.secs_diff)
+    if Config.only_pixel:
+        if db_update.only_pixel_update:
+            return
         measure_dict = dissimilarity_measure.measure_dict
-        for d in db_update.mongodb.actions_documents(start_timestamp=db_update.pre_timestamp, end_timestamp=cur_timestamp):
-            #print("new action by {}.".format(d['player_name'] if d['player_name'] != '' else 'recommendation'))
-            # skip gram
-            if d['player_name'] == '':
-                #print("skip recommendation")
-                continue
-            # if d['direction'] not in ['bottom', 'right']:
-            #     continue
-            if d['direction'] in ['left', 'top']:
-                # reverse the direction
-                first_piece_id, second_piece_id = d['to'], d['from']
-                orientation = {
-                    'top': 'TD',
-                    'left': 'LR',
-                }[d['direction']]
-            elif d['direction'] in ['bottom', 'right']:
-                first_piece_id, second_piece_id = d['from'], d['to']
-                orientation = {
-                    'bottom': 'TD',
-                    'right': 'LR',
-                }[d['direction']]
-            else:
-                print('unknown direction:{}'.format(d['direction']))
-                exit(1)
-            k = str(first_piece_id)+orientation+str(second_piece_id)
-            if d['operation'].find('+') != -1:
-                measure_dict[k] = measure_dict.get(k, 0) - 1
-                print('{}/{}:{}->{}->{}'.format(d['player_name'],d['operation'], first_piece_id, orientation, second_piece_id))
-            else:
-                measure_dict[k] = measure_dict.get(k, 0) + 2
-                print('{}/{}:{}->{}->{}'.format(d['player_name'],d['operation'], first_piece_id, orientation, second_piece_id))
-        db_update.pre_timestamp = cur_timestamp
-
+        update_shape_dissimilarity(measure_dict)
+        #print(measure_dict)
+        db_update.only_pixel_update = True
+    else:
+        if Config.cli_args.online:
+            # online
+            measure_dict = dissimilarity_measure.measure_dict
+            #measure_dict.clear()
+            edges, db_update.cog_index = db_update.mongodb.edges_documents(), -1
+            if edges:
+                db_update.crowd_edge_count = len(edges)
+                db_update.crowd_correct_edge = 0
+                for e, edge in edges.items():
+                    first_piece_id = edge['x']
+                    if edge['tag'] == 'L-R':
+                        orient = 'LR'
+                    else:
+                        orient = 'TD'
+                    second_piece_id = edge['y']
+                    db_update.edges_confidence[e] = float(edge['confidence'])
+                    if Config.measure_weight:
+                        wp = edge['weight']
+                        confidence = edge['confidence']
+                        if confidence > 0:
+                            wn = wp / confidence - wp + 0.0
+                        else:
+                            wn = 0.0
+                            opposers = edge['opposers']
+                            for o in opposers:
+                                wn += opposers[o]
+                        measure = wn - wp
+                    else:
+                        measure = len(edge['opposers']) - len(edge['supporters'])
+                    key = str(first_piece_id)+orient+str(second_piece_id)
+                    measure_dict[key] = measure
+                    if orient == 'LR' and first_piece_id + 1 == second_piece_id and second_piece_id % Config.cli_args.rows != 0:
+                        db_update.crowd_correct_edge += 1
+                    if orient == 'TD' and first_piece_id + Config.cli_args.rows == second_piece_id:
+                        db_update.crowd_correct_edge += 1
+            update_shape_dissimilarity(measure_dict)
+        else:
+            # offline
+            measure_dict = dissimilarity_measure.measure_dict
+            #measure_dict.clear()
+            edges, db_update.cog_index = db_update.mongodb.cog_edges_documents(Config.timestamp, db_update.cog_index)
+            if edges:
+                db_update.crowd_edge_count = len(edges)
+                db_update.crowd_correct_edge = 0
+                # print("crowd_edge_count: %d" % crowd_edge_count)
+                for e, edge in edges.items():
+                    first_piece_id, second_piece_id = int(e.split('-')[0][:-1]), int(e.split('-')[1][1:])
+                    if e.split('-')[0][-1] == 'L':
+                        orient = 'LR'
+                    else:
+                        orient = 'TD'
+                    key = str(first_piece_id)+orient+str(second_piece_id)
+                    wp = float(edge['wp'])
+                    wn = float(edge['wn'])
+                    oLen = float(edge['oLen'])
+                    sLen = float(edge['sLen'])
+                    db_update.edges_confidence[e] = wp/(wn + wp) if (wn + wp) > 0 else 0
+                    if Config.measure_weight:
+                        measure = wn - wp
+                    else:
+                        measure = oLen - sLen
+                    measure_dict[key] = measure
+                    if orient == 'LR' and first_piece_id + 1 == second_piece_id and second_piece_id % Config.cli_args.rows != 0:
+                        db_update.crowd_correct_edge += 1
+                    if orient == 'TD' and first_piece_id + Config.cli_args.rows == second_piece_id:
+                        db_update.crowd_correct_edge += 1
+            update_shape_dissimilarity(measure_dict)
 
 
 @static_vars(measure_dict=dict())
@@ -95,6 +134,35 @@ def dissimilarity_measure(first_piece, second_piece, orientation="LR"):
     # | D |
 
     '''
-    value = dissimilarity_measure.measure_dict.get(str(first_piece.id)+orientation+str(second_piece.id), 0)
-    return value
+    k = str(first_piece.id)+orientation+str(second_piece.id)
+    if not Config.use_pixel:
+        return dissimilarity_measure.measure_dict.get(k, 0)
+    else:
+        if k in dissimilarity_measure.measure_dict:
+            return dissimilarity_measure.measure_dict[k]
+        if db_update.crowd_edge_count >= int(Config.use_pixel_shred * Config.total_edges):
+            # use pixel difference
+            # | L | - | R |
+            if orientation == "LR":
+                color_difference = first_piece[:, -Config.erase_edge-1, :] - second_piece[:, Config.erase_edge, :]
+
+            # | T |
+            #   |
+            # | D |
+            if orientation == "TD":
+                color_difference = first_piece[Config.erase_edge-1, :, :] - second_piece[Config.erase_edge, :, :]
+
+            squared_color_difference = np.power(color_difference / 255.0, 2)
+            color_difference_per_row = np.sum(squared_color_difference, axis=1)
+            total_difference = np.sum(color_difference_per_row, axis=0)
+
+            value = np.sqrt(total_difference)
+
+            value /= np.sqrt(Config.cli_args.size * 3) # to make sure value < 1
+            dissimilarity_measure.measure_dict[k] = value
+            # value = -value
+            return value
+        else:
+            # not use pixel difference
+            return 0
 

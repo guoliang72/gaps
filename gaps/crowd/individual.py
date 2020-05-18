@@ -2,6 +2,7 @@ import numpy as np
 from gaps import image_helpers
 from gaps.crowd.image_analysis import ImageAnalysis
 from gaps.config import Config
+from gaps.crowd.fitness import db_update
 
 
 class Individual(object):
@@ -86,11 +87,57 @@ class Individual(object):
         return self._fitness
         '''
         """ Evaluate fitness value with crowd-based measure.
-        """
+        """          
         if self._fitness is None or self._objective is None:
             self._fitness = Config.fitness_func(self.objective)
 
         return self._fitness
+
+    def edges_set(self):
+        edges = set()
+        for index in range(len(self.pieces)):
+            if index % self.columns < self.columns - 1:
+                edge = str(self.pieces[index].id) + 'L-R' + str(self.pieces[index + 1].id)
+                edges.add(edge)
+            if index < (self.rows - 1) * self.columns:
+                edge = str(self.pieces[index].id) + 'T-B' + str(self.pieces[index + self.columns].id)
+                edges.add(edge)
+        return edges
+
+    def confident_edges_set(self):
+        edges = set()
+        # For each two adjacent pieces in rows
+        for i in range(self.rows):
+            for j in range(self.columns - 1):
+                ids = (self[i][j].id, self[i][j + 1].id)
+                edge = str(self[i][j].id) + 'L-R' + str(self[i][j + 1].id)
+                if edge in db_update.edges_confidence and db_update.edges_confidence[edge] >= 0.618:
+                    edges.add(edge)
+        # For each two adjacent pieces in columns
+        for i in range(self.rows - 1):
+            for j in range(self.columns):
+                ids = (self[i][j].id, self[i + 1][j].id)
+                edge = str(self[i][j].id) + 'T-B' + str(self[i + 1][j].id)
+                if edge in db_update.edges_confidence and db_update.edges_confidence[edge] >= 0.618:
+                    edges.add(edge)
+        return edges
+
+    def compute_correct_links(self):
+        correct_links = 0
+        for index in range(len(self.pieces)):
+            if index % self.columns < self.columns - 1:
+                if self.pieces[index + 1].id == self.pieces[index].id + 1:
+                    correct_links += 1
+            if index < (self.rows - 1) * self.columns:
+                if self.pieces[index + self.columns].id == self.pieces[index].id + self.columns:
+                    correct_links += 1
+        return correct_links
+
+    def compute_correct_links_percentage(self):
+        correct_links = self.compute_correct_links() * 1.0
+        total_links = (2 * self.rows * self.columns - self.rows - self.columns) * 1.0
+        return correct_links / total_links
+
 
     def piece_size(self):
         """Returns single piece size"""
@@ -120,6 +167,8 @@ class Individual(object):
         if (orientation == "L") and (edge_index % self.columns > 0):
             return self.pieces[edge_index - 1].id
 
+        return None
+
     def is_solution(self):
         if self._is_solution is None:
             for i in range(len(self.pieces)-1):
@@ -130,6 +179,9 @@ class Individual(object):
                 self._is_solution = True
         
         return self._is_solution
+
+    def get_pieces_id_list(self):
+        return [piece.id for piece in self.pieces]
 
     def to_json_data(self, generation, start_time):
         ret = dict(

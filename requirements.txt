@@ -1,6 +1,8 @@
-numpy==1.11.3
-opencv-python==3.2.0.8
-matplotlib==2.0.0
-pytest==3.2.1
-pillow==4.2.1
-pymongo==3.6.1
+numpy
+opencv-python
+matplotlib
+pytest
+pillow
+pymongo
+redis
+requests

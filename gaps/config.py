@@ -3,35 +3,77 @@ import math
 class ConfigClass:
 
 	# round_id is set by command line arguments.
-	round_id = None
+	timestamp = None
 
-	population = 600
+	round_id = 458
 
-	elite_percentage = 0.05
+	search_depth = 30000
+
+	population = 400
+	crowd_population = 25
+
+	elite_percentage = 0.02
 
 	elite_size = int(population * elite_percentage)
 
 	generations = 10000000
 
-	multiprocess = False
+	multiprocess = True
+
+	# whether we use pixel informtion
+	only_pixel = False
+	use_pixel = True
+	use_pixel_shred = 0
+	 # num of created edge / (n-1)m + n(m-1)
+
+	measure_weight = False
+
+	shape_dissimilarity = 10000
 
 	# roulette_alt = False: select one individual in each round of roulette.
 	# roulette_alt = True: select two individuals(parents) in each round of roulette.
-	roulette_alt = False
+	roulette_alt = True
 
-	mongodb_ip = "localhost"
+	data_server = "localhost"
+	domain = "localhost"
 	mongodb_port = 27017
+	mongodb_database = "CrowdJigsaw"
+	redis_port = 6379
+	redis_auth="CISE:1726"
+	redis_db=0
 
 	# mongodb authentication.
-	authentication = False
-	# username = "username" # change it to your username.
-	# password = "password" # change it to your password.
+	authentication = True
+	username = "CISE" # change it to your username.
+	password = "CISE:1726" # change it to your password.
 
 	# command line arguments. This is set by ./bin/gaps.
 	cli_args = None
 
 	# number of processes for multiprocessing on crossover operation.
-	process_num = 4
+	process_num = 8
+
+	_total_edges = None
+
+	erase_edge = 2
+
+	offline_start_percent = 0.0
+
+	@property
+	def total_edges(self):
+		if self._total_edges is None:
+			rows, cols = self.cli_args.rows, self.cli_args.cols
+			self._total_edges = 2*rows*cols - rows - cols
+		return self._total_edges
+	
+	_total_tiles = None
+
+	@property
+	def total_tiles(self):
+		if self._total_tiles is None:
+			rows, cols = self.cli_args.rows, self.cli_args.cols
+			self._total_tiles = rows * cols
+		return self._total_tiles
 
 	# fitness function alternatives.
 	# x = \sum{sup_num - opp_num}
@@ -48,16 +90,18 @@ class ConfigClass:
 		return sigmoid
 	'''
 	def sigmoid(x):
-		return 1.0 / (1.0 + math.exp(-x/150.0))
+		if(-x > 100000):
+			return 0.000000000000000000000000000001
+		return 1.0 / (1.0 + math.exp(-x / 150.0))
 
-	base = 1.1
+	base = 1.1 
 	def exponent(x):
 		return 1.1 ** x
 
 	_fitness_func_name = None
 	_fitness_func = None
 
-	rank_based_MAX = 1.90
+	rank_based_MAX = 1.9
 
 	@property
 	def fitness_func(self):

@@ -17,8 +17,8 @@ from time import time
 from gaps.size_detector import SizeDetector
 # from gaps.plot import Plot
 from gaps.config import Config
-from gaps.crowd.dbaccess import mongo_wrapper
-
+import redis
+import json
 
 '''
 def show_image(img, title):
@@ -35,22 +35,36 @@ def parse_arguments():
     # parser.add_argument("--generations", type=int, help="Num of generations.")
     # parser.add_argument("--population", type=int, default=POPULATION, help="Size of population.")
     parser.add_argument("--size", type=int, help="Single piece size in pixels.")
-    parser.add_argument("--verbose", action="store_true", help="Show best individual after each generation.")
-    parser.add_argument("--fitness", type=str, choices=['rank-based', 'sigmoid', 'exponent'], required=True)
+    parser.add_argument("--verbose", action="store_true", help="Show best individual after each generation.", default=False)
+    parser.add_argument("--fitness", type=str, choices=['rank-based', 'sigmoid', 'exponent'], default='rank-based')
     parser.add_argument("--rows", type=int, default=-1)
     parser.add_argument("--cols", type=int, default=-1)
-    parser.add_argument("--roundid", type=int, required=True)
-    parser.add_argument("--mp", action="store_true")
-    parser.add_argument("--save", action="store_true", help="Save puzzle result as image.")
+    parser.add_argument("--hide_detail", action="store_true", default=False)
+    parser.add_argument("--erase_edge", type=int, default=2)
+    parser.add_argument("--use_pixel", action="store_true", default=False)
+    parser.add_argument("--measure_weight", action="store_true", default=False)
+    parser.add_argument("--start_at", type=float, default=0.0)
+    parser.add_argument("--round_id", type=int, required=True)
+    parser.add_argument("--data_server", type=str, default='localhost')
+    parser.add_argument("--domain", type=str, default='localhost')
+    parser.add_argument("--save", action="store_true", help="Save puzzle result as image.", default=True)
     parser.add_argument("--algorithm", type=str, choices=['edge', 'crowd'], default='crowd')
-    parser.add_argument("--offline", action="store_true")
+    parser.add_argument("--online", action="store_true", default=False)
     return parser.parse_args()
 
 def set_round_info(args):
-    round_info = mongo_wrapper.db['rounds'].find_one({'round_id': args.roundid})
-    
+    redis_cli = redis.Redis(connection_pool=Config.pool)
+    round_info = redis_cli.get('round:' + str(args.round_id))
+    if not round_info:
+        round_info = mongo_wrapper.db['rounds'].find_one({'round_id': args.round_id})
+        #print('get round from mongo')
+    else:
+        round_info = json.loads(round_info)
+        #print('get round from redis')
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-    image_path = os.path.join(base_dir, 'CrowdJigsaw/public/'+round_info['image'])
+    #print(base_dir)
+    image_path = os.path.join(base_dir, 'gaps/placeholder_10x10.jpg')
+    #print(image_path)
     args.image = image_path
 
     args.size = round_info['tileWidth']
@@ -62,13 +76,25 @@ def set_round_info(args):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    Config.round_id = args.roundid
-    Config.multiprocess = args.mp
+    Config.round_id = args.round_id
+    Config.erase_edge = args.erase_edge
+    Config.use_pixel = args.use_pixel
+    Config.data_server = args.data_server
+    Config.domain = args.domain
+    Config.pool = redis.ConnectionPool(host=Config.data_server,port=Config.redis_port,password=Config.redis_auth,db=Config.redis_db,decode_responses=True)
+    Config.measure_weight = args.measure_weight
+    if not args.online:
+        Config.offline_start_percent = args.start_at
+    Config.rows = args.rows
+    Config.cols = args.cols
     Config.cli_args = args
-    if args.offline:
-        set_round_info(args)
+    from gaps.crowd.dbaccess import mongo_wrapper
+    set_round_info(args)
+    print('imagePath: %s, measure_weight: %s, use_pixel: %s, erase_edge: %d' % \
+        (args.image, str(Config.measure_weight), str(Config.use_pixel), Config.erase_edge))
     image = cv2.imread(args.image)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = cv2.resize(image, (args.cols * args.size, args.rows * args.size))
 
     assert args.size is not None
     piece_size = args.size
@@ -102,7 +128,11 @@ if __name__ == "__main__":
     solution = algorithm.start_evolution(args.verbose)
     end = time()
 
-    print("\n=== Done in {0:.3f} s".format(end - start))
+    if not args.online:
+        halfStartTime = mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent
+        print("\n=== Done in {0:.3f} s".format(end - start + halfStartTime / 1000))
+    else:
+        print("\n=== Done in {0:.3f} s".format(end - start))
 
     solution_image = solution.to_image()
     solution_image_name = args.image.split(".")[0] + "_solution.jpg"

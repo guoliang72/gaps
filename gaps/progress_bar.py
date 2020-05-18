@@ -3,6 +3,8 @@
 import sys
 import time
 import datetime
+from gaps.crowd.dbaccess import mongo_wrapper
+from gaps.config import Config
 
 
 def print_progress(iteration, total, prefix="", start_time = None, suffix="", decimals=1, bar_length=50):
@@ -11,7 +13,10 @@ def print_progress(iteration, total, prefix="", start_time = None, suffix="", de
     percents = str_format.format(100 * (iteration / float(total)))
     filled_length = int(round(bar_length * iteration / float(total)))
     bar = "\033[32m█\033[0m" * filled_length + "\033[31m-\033[0m" * (bar_length - filled_length)
-    time_passed = str(datetime.timedelta(seconds=time.time()-start_time))[:-3] \
+    if Config.cli_args.online:
+        time_passed = str(datetime.timedelta(seconds=time.time() - mongo_wrapper.get_round_start_milisecs() / 1000))[:-3]
+    else:
+        time_passed = str(datetime.timedelta(seconds=time.time() - start_time + mongo_wrapper.get_round_winner_time_milisecs() * Config.offline_start_percent / 1000))[:-3] \
                     if start_time is not None else 0
 
     sys.stdout.write("\r{0: <16} [{1}] {2} {3}/{4} {5}{6} {7}".format(prefix, time_passed, bar, iteration, total, percents, "%", suffix))
