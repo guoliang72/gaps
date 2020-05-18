@@ -9,6 +9,10 @@ out.jpg
 *_solution.jpg
 puzzle.jpg
 images/
+*.out
+*.log
+out.txt
+sftp-config.json
 
 # C extensions
 *.so
